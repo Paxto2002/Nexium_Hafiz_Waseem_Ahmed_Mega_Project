@@ -1,9 +1,9 @@
 import Link from 'next/link';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+import { createSupabaseServerClient } from '@/lib/supabase/server'; // Import the server client wrapper
 
 export default async function HomePage() {
-  const supabase = createSupabaseServerClient();
+  // Await the creation of the Supabase server client
+  const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
 
   return (
@@ -50,7 +50,7 @@ export default async function HomePage() {
                 Get recipes tailored to your dietary preferences and ingredients you have on hand.
               </p>
             </div>
-            
+
             {/* Feature 2 */}
             <div className="bg-green-50 p-6 rounded-lg">
               <h3 className="text-xl font-bold mb-3">Nutrition Tracking</h3>
@@ -58,7 +58,7 @@ export default async function HomePage() {
                 Detailed nutritional information for every recipe to help you meet your health goals.
               </p>
             </div>
-            
+
             {/* Feature 3 */}
             <div className="bg-green-50 p-6 rounded-lg">
               <h3 className="text-xl font-bold mb-3">Smart Shopping</h3>

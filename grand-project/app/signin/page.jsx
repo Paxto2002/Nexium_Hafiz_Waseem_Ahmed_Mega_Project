@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+// Ensure this import path is correct and that checkUserExists is exported from it
 import { createClient, checkUserExists } from '@/lib/supabase/client';
 
 export default function SignInPage() {
@@ -22,9 +23,21 @@ export default function SignInPage() {
       const supabase = createClient();
 
       // Check if user exists (optional - for better UX)
+      // This call relies on checkUserExists being correctly exported and imported.
       const userExists = await checkUserExists(email);
 
-      const { error } = await supabase.auth.signInWithOtp({
+      // If user does not exist, provide a specific message and stop.
+      // This is a common pattern when using `shouldCreateUser: false` for sign-in.
+      if (!userExists) {
+        setMessage({
+          type: 'error',
+          content: 'No account found with this email. Please sign up first.'
+        });
+        setLoading(false);
+        return; // Stop the function execution here
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithOtp({
         email,
         options: {
           emailRedirectTo: `${window.location.origin}/dashboard`,
@@ -35,14 +48,14 @@ export default function SignInPage() {
         },
       });
 
-      if (error) {
-        console.error('Sign in error:', error);
-        setMessage({ type: 'error', content: error.message });
+      if (signInError) { // Use signInError to avoid conflict with searchParams.get('error')
+        console.error('Sign in error:', signInError);
+        setMessage({ type: 'error', content: signInError.message });
       } else {
-        const messageText = userExists 
+        const messageText = userExists
           ? '✅ Check your email for the login link!'
-          : '❓ Check your email. If you don\'t have an account, please sign up first.';
-          
+          : '❓ Check your email. If you don\'t have an account, please sign up first.'; // This line might not be reached if userExists check above works
+
         setMessage({
           type: 'success',
           content: messageText,

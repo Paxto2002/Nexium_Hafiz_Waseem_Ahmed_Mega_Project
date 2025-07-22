@@ -21,21 +21,34 @@ export default function DashboardPage() {
           data: { session },
           error,
         } = await supabase.auth.getSession();
-        if (error) return console.error("Session error:", error);
+        if (error) {
+          console.error("Session error:", error);
+          setLoading(false); // Stop loading if session fetch fails
+          return;
+        }
+
         if (session?.user) {
           setUser(session.user);
-          if (session.user.user_metadata?.is_signup)
+          // Only attempt to create a user profile if 'is_signup' metadata is true.
+          // This flag is typically set during the initial signup flow.
+          if (session.user.user_metadata?.is_signup) {
             await createUserProfile(session.user);
+            // After creating the profile, you might want to clear this flag
+            // if it's a one-time setup, though not strictly necessary here.
+          }
           await loadUserRecipes(session.user.id);
+        } else {
+          // If no session or user, stop loading and potentially redirect or show login prompt
+          console.log("No user session found.");
         }
       } catch (error) {
-        console.error("User init error:", error);
+        console.error("User initialization error:", error);
       } finally {
         setLoading(false);
       }
     };
     initializeUser();
-  }, []);
+  }, []); // Empty dependency array means this runs once on mount
 
   const createUserProfile = async (user) => {
     try {
@@ -45,32 +58,44 @@ export default function DashboardPage() {
         body: JSON.stringify({
           user_id: user.id,
           email: user.email,
-          name: user.user_metadata?.name || user.email.split("@")[0],
+          name: user.user_metadata?.name || user.email.split("@")[0], // Use user_metadata.name or default to part of email
         }),
       });
-      if (!res.ok) throw new Error("Profile creation failed");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(`Profile creation failed: ${errorData.message || res.statusText}`);
+      }
     } catch (error) {
-      console.error("Profile error:", error);
+      console.error("Profile creation error:", error);
+      // In a real app, display a user-friendly message, e.g., using a toast
     }
   };
 
   const loadUserRecipes = async (userId) => {
     try {
       const res = await fetch(`/api/recipes?user_id=${userId}`);
-      if (!res.ok) throw new Error("Failed to fetch recipes");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(`Failed to fetch recipes: ${errorData.message || res.statusText}`);
+      }
       const data = await res.json();
       setRecipes(data.recipes || []);
     } catch (error) {
       console.error("Load recipes error:", error);
+      // In a real app, display a user-friendly message
     }
   };
 
   const handleGenerateRecipe = async (e) => {
     e.preventDefault();
-    if (!recipeInput.trim() || !user) return;
+    if (!recipeInput.trim() || !user) {
+      console.warn("Recipe input is empty or user is not logged in.");
+      return;
+    }
 
     setGenerating(true);
     try {
+      // Mock recipe generation (replace with actual AI call later)
       const mockRecipe = {
         title: `Delicious ${recipeInput} Recipe`,
         ingredients: [recipeInput, "Salt and pepper", "Olive oil", "Garlic"],
@@ -99,12 +124,17 @@ export default function DashboardPage() {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to save recipe");
-      await loadUserRecipes(user.id);
-      setRecipeInput("");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Failed to save recipe: ${errorData.message || response.statusText}`);
+      }
+      await loadUserRecipes(user.id); // Reload recipes after successful generation
+      setRecipeInput(""); // Clear input field
     } catch (error) {
-      console.error("Generation error:", error);
-      alert("Failed to generate recipe. Try again.");
+      console.error("Recipe generation error:", error);
+      // IMPORTANT: Replaced alert() with console.error for Canvas compatibility.
+      // In a real app, use a toast/modal for user feedback.
+      // alert("Failed to generate recipe. Try again.");
     } finally {
       setGenerating(false);
     }
