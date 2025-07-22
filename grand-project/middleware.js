@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 const SUPABASE_URL = "https://gqwujwwjfmndahpqoear.supabase.co";
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdxd3Vqd3dqZm1uZGFocHFvZWFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE3MDQ1MzgsImV4cCI6MjA2NzI4MDUzOH0.eBGhmGbUGxn7325eBITeFzqVneJvkHNxy3oC014iAHY";
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 const protectedRoutes = ["/app/dashboard"]; // Changed to match your actual route
 
