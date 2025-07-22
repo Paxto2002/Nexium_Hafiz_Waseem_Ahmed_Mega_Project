@@ -22,3 +22,46 @@ if (process.env.NODE_ENV === "development") {
 }
 
 export default clientPromise;
+
+// Helper function to connect to database
+export async function connectToDB() {
+  try {
+    const client = await clientPromise;
+    const db = client.db(process.env.MONGODB_DB || "chefDB");
+    return { client, db };
+  } catch (error) {
+    console.error("MongoDB connection error:", error);
+    throw error;
+  }
+}
+
+// Helper function to insert recipe
+export async function insertRecipe(recipeData) {
+  try {
+    const { db } = await connectToDB();
+    const result = await db.collection("recipes").insertOne({
+      ...recipeData,
+      created_at: new Date(),
+    });
+    return result;
+  } catch (error) {
+    console.error("Error inserting recipe:", error);
+    throw error;
+  }
+}
+
+// Helper function to get user recipes
+export async function getUserRecipes(userId) {
+  try {
+    const { db } = await connectToDB();
+    const recipes = await db
+      .collection("recipes")
+      .find({ user_id: userId })
+      .sort({ created_at: -1 })
+      .toArray();
+    return recipes;
+  } catch (error) {
+    console.error("Error getting user recipes:", error);
+    throw error;
+  }
+}
