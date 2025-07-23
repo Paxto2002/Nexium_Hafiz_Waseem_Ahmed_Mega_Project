@@ -1,13 +1,10 @@
 'use client';
-
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient, checkUserExists } from '@/lib/supabase/client';
 
 export default function SignUpPage() {
-  const supabase = createClient();
   const router = useRouter();
-
   const [formData, setFormData] = useState({
     email: '',
     name: ''
@@ -29,24 +26,11 @@ export default function SignUpPage() {
     setMessage({ type: '', content: '' });
 
     try {
-      // Check if user already exists
-      const userExists = await checkUserExists(formData.email);
-      
-      if (userExists) {
-        setMessage({
-          type: 'error',
-          content: 'An account with this email already exists. Please sign in instead.'
-        });
-        setLoading(false);
-        return;
-      }
-
-      // Send magic link with user metadata for new user
+      const supabase = createClient();
       const { error } = await supabase.auth.signInWithOtp({
         email: formData.email,
         options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
-          shouldCreateUser: true,
+          emailRedirectTo: `${window.location.origin}/api/auth/callback`,
           data: {
             name: formData.name || formData.email.split('@')[0],
             is_signup: true
@@ -54,23 +38,16 @@ export default function SignUpPage() {
         }
       });
 
-      if (error) {
-        console.error('Signup error:', error);
-        setMessage({ type: 'error', content: error.message });
-      } else {
-        setMessage({
-          type: 'success',
-          content: 'Welcome! Check your email for the confirmation link to complete your account setup.'
-        });
-        
-        // Optional: Clear form on success
-        setFormData({ email: '', name: '' });
-      }
+      if (error) throw error;
+      
+      setMessage({
+        type: 'success',
+        content: 'Check your email for the confirmation link!'
+      });
     } catch (error) {
-      console.error('Signup error:', error);
       setMessage({
         type: 'error',
-        content: 'An unexpected error occurred. Please try again.'
+        content: error.message || 'Sign up failed. Please try again.'
       });
     } finally {
       setLoading(false);

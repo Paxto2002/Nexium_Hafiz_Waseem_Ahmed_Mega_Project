@@ -2,11 +2,13 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import { createBrowserClient } from '@supabase/ssr';
 import Image from 'next/image';
 
 export default function Header() {
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -46,6 +48,16 @@ export default function Header() {
     window.location.href = '/';
   };
 
+  const navItemClass = (href) =>
+    pathname === href
+      ? 'bg-[#4fa740] text-white px-3 py-1 rounded transition'
+      : 'text-green-600 hover:text-green-900 transition';
+
+  const mobileNavItemClass = (href) =>
+    pathname === href
+      ? 'block bg-[#4fa740] text-white px-3 py-1 rounded transition'
+      : 'block text-green-600 hover:text-green-900 transition';
+
   if (loading) {
     return (
       <header className="bg-white shadow-md sticky top-0 z-50">
@@ -68,7 +80,6 @@ export default function Header() {
   return (
     <header className="bg-white shadow-md sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        {/* Logo - Always visible */}
         <Link href="/" className="flex items-center">
           <Image 
             src="/chef_logo.png" 
@@ -80,7 +91,7 @@ export default function Header() {
           <span className="text-xl font-bold text-green-600">Chef Paxto</span>
         </Link>
 
-        {/* Hamburger */}
+        {/* Hamburger Icon */}
         <button
           className="lg:hidden"
           onClick={() => setIsOpen(!isOpen)}
@@ -89,42 +100,42 @@ export default function Header() {
           {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
 
-        {/* Nav (Large screen) */}
+        {/* Desktop Nav */}
         <nav className="hidden lg:flex space-x-6 items-center">
           {session ? (
             <>
-              <Link href="/dashboard" className=    "text-green-600 hover:text-green-900">Dashboard</Link>
-              <Link href="/profile" className=  "text-green-600 hover:text-green-900">Profile</Link>
-              <button onClick={handleSignOut} className="text-red-500 hover:text-red-600">Sign Out</button>
+              <Link href="/dashboard" className={navItemClass('/dashboard')}>Dashboard</Link>
+              <Link href="/profile" className={navItemClass('/profile')}>Profile</Link>
+              <button onClick={handleSignOut} className="text-red-500 hover:text-red-600 transition">Sign Out</button>
             </>
           ) : (
             <>
-              <Link href="/features" className="hover:text-green-600">Features</Link>
-              <Link href="/pricing" className="hover:text-green-600">Pricing</Link>
-              <Link href="/docs" className="hover:text-green-600">Docs</Link>
-              <Link href="/signin" className="hover:text-green-600">Sign In</Link>
-              <Link href="/signup" className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Sign Up</Link>
+              <Link href="/features" className={navItemClass('/features')}>Features</Link>
+              <Link href="/pricing" className={navItemClass('/pricing')}>Pricing</Link>
+              <Link href="/docs" className={navItemClass('/docs')}>Docs</Link>
+              <Link href="/signin" className={navItemClass('/signin')}>Sign In</Link>
+              <Link href="/signup" className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition">Sign Up</Link>
             </>
           )}
         </nav>
       </div>
 
-      {/* Nav (Mobile) */}
+      {/* Mobile Nav */}
       {isOpen && (
         <nav className="lg:hidden px-4 pb-4 space-y-2 bg-white shadow-md">
           {session ? (
             <>
-              <Link href="/dashboard" className="block text-green-600 hover:text-green-900">Dashboard</Link>
-              <Link href="/profile" className="block text-green-600 hover:text-green-900">Profile</Link>
-              <button onClick={handleSignOut} className="block text-red-500 hover:text-red-600">Sign Out</button>
+              <Link href="/dashboard" className={mobileNavItemClass('/dashboard')}>Dashboard</Link>
+              <Link href="/profile" className={mobileNavItemClass('/profile')}>Profile</Link>
+              <button onClick={handleSignOut} className="block text-red-500 hover:text-red-600 transition">Sign Out</button>
             </>
           ) : (
             <>
-              <Link href="/features" className="block hover:text-green-600">Features</Link>
-              <Link href="/pricing" className="block hover:text-green-600">Pricing</Link>
-              <Link href="/docs" className="block hover:text-green-600">Docs</Link>
-              <Link href="/signin" className="block hover:text-green-600">Sign In</Link>
-              <Link href="/signup" className="block bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Sign Up</Link>
+              <Link href="/features" className={mobileNavItemClass('/features')}>Features</Link>
+              <Link href="/pricing" className={mobileNavItemClass('/pricing')}>Pricing</Link>
+              <Link href="/docs" className={mobileNavItemClass('/docs')}>Docs</Link>
+              <Link href="/signin" className={mobileNavItemClass('/signin')}>Sign In</Link>
+              <Link href="/signup" className="block bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition">Sign Up</Link>
             </>
           )}
         </nav>

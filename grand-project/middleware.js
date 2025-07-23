@@ -1,68 +1,64 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const protectedRoutes = ["/dashboard"];
+const authRoutes = ["/signin", "/signup"];
 
-const protectedRoutes = ["/app/dashboard"]; // Changed to match your actual route
-
-export async function middleware(req) {
-  const url = req.nextUrl.clone();
-  const path = url.pathname;
-
-  const isProtected = protectedRoutes.some((route) => path.startsWith(route));
-  if (!isProtected) return NextResponse.next();
-
-  const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    cookies: {
-      get(name) {
-        return req.cookies.get(name)?.value;
-      },
-      set(name, value, options) {
-        req.cookies.set({
-          name,
-          value,
-          ...options,
-        });
-        return NextResponse.next({
-          request: {
-            headers: req.headers,
-          },
-        });
-      },
-      remove(name, options) {
-        req.cookies.set({
-          name,
-          value: "",
-          ...options,
-        });
-        return NextResponse.next({
-          request: {
-            headers: req.headers,
-          },
-        });
-      },
+export async function middleware(request) {
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
     },
   });
 
+  // Create Supabase client with proper cookie handling
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        get(name) {
+          return request.cookies.get(name)?.value;
+        },
+        set(name, value, options) {
+          request.cookies.set({ name, value, ...options });
+          response.cookies.set({ name, value, ...options });
+        },
+        remove(name, options) {
+          request.cookies.set({ name, value: "", ...options });
+          response.cookies.set({ name, value: "", ...options });
+        },
+      },
+    }
+  );
+
+  // Check authentication status
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    url.pathname = "/signin";
-    return NextResponse.redirect(url);
+  // Handle root redirect
+  if (request.nextUrl.pathname === "/") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // If user is logged in and trying to access root, redirect to dashboard
-  if (path === "/") {
-    url.pathname = "/app/dashboard";
-    return NextResponse.redirect(url);
+  // Route protection logic
+  if (
+    protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route))
+  ) {
+    if (!user) {
+      return NextResponse.redirect(new URL("/signin", request.url));
+    }
   }
 
-  return NextResponse.next();
+  // Prevent authenticated users from accessing auth pages
+  if (authRoutes.includes(request.nextUrl.pathname) && user) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  return response;
 }
 
 export const config = {
-  matcher: ["/", "/app/dashboard/:path*"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };

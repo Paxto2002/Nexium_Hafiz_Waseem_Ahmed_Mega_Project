@@ -1,28 +1,66 @@
-import { createServerClient } from "@/lib/supabase/server";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+'use client'; // Add this for client-side interactivity
 
-export default async function ProfilePage() {
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
+import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+export default function ProfilePage() {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [recipeCount, setRecipeCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  if (!user) redirect("/signin");
+  useEffect(() => {
+    const fetchData = async () => {
+      const supabase = createClient();
+      
+      // Get current user
+      const { 
+        data: { user }, 
+        error: userError 
+      } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
-    .from("user_profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .single();
+      if (!user || userError) {
+        router.push('/signin');
+        return;
+      }
 
-  const { data: recipes } = await supabase
-    .from("recipes")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id);
+      setUser(user);
+
+      // Get profile
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      setProfile(profileData || {});
+
+      // Get recipe count
+      const { count } = await supabase
+        .from('recipes')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      setRecipeCount(count || 0);
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [router]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // Redirect will happen in useEffect
+  }
 
   return (
     <div className="space-y-6 max-w-xl mx-auto">
@@ -35,10 +73,27 @@ export default async function ProfilePage() {
       </div>
 
       <div className="bg-white p-4 rounded-md shadow">
-        <p><strong>📊 Recipes Generated:</strong> {recipes?.count ?? 0}</p>
+        <p><strong>📊 Recipes Generated:</strong> {recipeCount}</p>
       </div>
 
-      {/* TODO: Add edit name + sign out buttons */}
+      <div className="flex gap-4">
+        <button 
+          onClick={() => router.push('/dashboard/profile/edit')}
+          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+        >
+          Edit Profile
+        </button>
+        <button 
+          onClick={async () => {
+            const supabase = createClient();
+            await supabase.auth.signOut();
+            router.push('/signin');
+          }}
+          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+        >
+          Sign Out
+        </button>
+      </div>
     </div>
   );
 }

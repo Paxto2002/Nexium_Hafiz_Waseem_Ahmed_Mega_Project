@@ -1,249 +1,124 @@
-"use client";
+'use client';
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { RecipeCard } from "@/components/RecipeCard";
+import { RecipeForm } from "@/components/RecipeForm";
+import { RecipeLoader } from "@/components/RecipeLoader";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function DashboardPage() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
   const [recipes, setRecipes] = useState([]);
-  const [recipeInput, setRecipeInput] = useState("");
-  const [generating, setGenerating] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
-    const initializeUser = async () => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        fetchRecipes(session.user.id);
+      }
+    });
+  }, []);
+
+  const fetchRecipes = async (userId) => {
+    try {
       const supabase = createClient();
-      try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
-        if (error) {
-          console.error("Session error:", error);
-          setLoading(false); // Stop loading if session fetch fails
-          return;
-        }
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
 
-        if (session?.user) {
-          setUser(session.user);
-          // Only attempt to create a user profile if 'is_signup' metadata is true.
-          // This flag is typically set during the initial signup flow.
-          if (session.user.user_metadata?.is_signup) {
-            await createUserProfile(session.user);
-            // After creating the profile, you might want to clear this flag
-            // if it's a one-time setup, though not strictly necessary here.
-          }
-          await loadUserRecipes(session.user.id);
-        } else {
-          // If no session or user, stop loading and potentially redirect or show login prompt
-          console.log("No user session found.");
-        }
-      } catch (error) {
-        console.error("User initialization error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    initializeUser();
-  }, []); // Empty dependency array means this runs once on mount
-
-  const createUserProfile = async (user) => {
-    try {
-      const res = await fetch("/api/users/profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: user.id,
-          email: user.email,
-          name: user.user_metadata?.name || user.email.split("@")[0], // Use user_metadata.name or default to part of email
-        }),
-      });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(`Profile creation failed: ${errorData.message || res.statusText}`);
-      }
+      if (error) throw error;
+      setRecipes(data || []);
     } catch (error) {
-      console.error("Profile creation error:", error);
-      // In a real app, display a user-friendly message, e.g., using a toast
-    }
-  };
-
-  const loadUserRecipes = async (userId) => {
-    try {
-      const res = await fetch(`/api/recipes?user_id=${userId}`);
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(`Failed to fetch recipes: ${errorData.message || res.statusText}`);
-      }
-      const data = await res.json();
-      setRecipes(data.recipes || []);
-    } catch (error) {
-      console.error("Load recipes error:", error);
-      // In a real app, display a user-friendly message
-    }
-  };
-
-  const handleGenerateRecipe = async (e) => {
-    e.preventDefault();
-    if (!recipeInput.trim() || !user) {
-      console.warn("Recipe input is empty or user is not logged in.");
-      return;
-    }
-
-    setGenerating(true);
-    try {
-      // Mock recipe generation (replace with actual AI call later)
-      const mockRecipe = {
-        title: `Delicious ${recipeInput} Recipe`,
-        ingredients: [recipeInput, "Salt and pepper", "Olive oil", "Garlic"],
-        instructions: [
-          "Prepare ingredients",
-          "Heat oil, sauté garlic",
-          `Add ${recipeInput}, season, cook until tender`,
-          "Serve hot",
-        ],
-        cook_time: "20 minutes",
-        servings: 4,
-      };
-
-      const response = await fetch("/api/recipes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: user.id,
-          input: recipeInput,
-          ai_title: mockRecipe.title,
-          ai_ingredients: mockRecipe.ingredients,
-          ai_steps: mockRecipe.instructions,
-          ai_tips: `Great recipe using ${recipeInput}!`,
-          cook_time: mockRecipe.cook_time,
-          servings: mockRecipe.servings,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Failed to save recipe: ${errorData.message || response.statusText}`);
-      }
-      await loadUserRecipes(user.id); // Reload recipes after successful generation
-      setRecipeInput(""); // Clear input field
-    } catch (error) {
-      console.error("Recipe generation error:", error);
-      // IMPORTANT: Replaced alert() with console.error for Canvas compatibility.
-      // In a real app, use a toast/modal for user feedback.
-      // alert("Failed to generate recipe. Try again.");
+      console.error('Error fetching recipes:', error);
     } finally {
-      setGenerating(false);
+      setDataLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-2">
-          <div className="animate-spin h-10 w-[70vw] border-b-2 border-green-500 rounded-full mx-auto" />
-          <p className="text-muted-foreground text-sm">
-            Loading your kitchen...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const handleSubmit = async (recipeData) => {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('recipes')
+        .insert([recipeData])
+        .select();
+
+      if (error) throw error;
+      setRecipes([data[0], ...recipes]);
+      setShowForm(false);
+    } catch (error) {
+      console.error('Error creating recipe:', error);
+    }
+  };
 
   return (
-    <div className="space-y-10 py-6 px-4 max-w-7xl mx-auto w-full">
-      <div>
-        <h1 className="text-4xl font-extrabold tracking-tight text-green-700">
-          Welcome to Chef Paxto 👨‍🍳
-        </h1>
-        <p className="text-muted-foreground mt-1 text-base">
-          Hello{" "}
-          <span className="font-medium">
-            {user?.user_metadata?.name || user?.email}
-          </span>
-          ! Start cooking with AI-powered recipes.
-        </p>
+    <section className="w-full max-w-6xl mx-auto px-4 md:px-8 py-10">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">
+            Welcome back, Chef!
+          </h1>
+          <p className="text-sm text-gray-500 mt-1 font-bold">
+            Ready to whip up something new?
+          </p>
+        </div>
+        <Button
+          onClick={() => setShowForm(true)}
+          size="sm"
+          className="bg-[#4FA740] text-white hover:bg-[#3d8c32] transition-colors duration-200"
+        >
+          + New Recipe
+        </Button>
       </div>
 
-      {/* Recipe Generator */}
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold">
-            🧠 Generate New Recipe
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={handleGenerateRecipe}
-            className="flex flex-col sm:flex-row gap-4"
-          >
-            <Input
-              placeholder="e.g., chicken, spinach, garlic"
-              value={recipeInput}
-              onChange={(e) => setRecipeInput(e.target.value)}
-              className="flex-1"
+      {/* Recipe Form */}
+      {showForm && (
+        <div className="mb-6">
+          <RecipeForm
+            onSubmit={handleSubmit}
+            onCancel={() => setShowForm(false)}
+          />
+        </div>
+      )}
+
+      {/* Recipes Grid */}
+      {dataLoading ? (
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          <RecipeLoader count={3} />
+        </div>
+      ) : recipes.length > 0 ? (
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {recipes.map(recipe => (
+            <RecipeCard
+              key={recipe.id}
+              recipe={recipe}
+              onEdit={() => {}}
+              onDelete={() => {}}
+              onView={() => {}}
             />
+          ))}
+        </div>
+      ) : (
+        <Card className="mt-6 shadow-md border border-dashed border-gray-300 bg-white/5">
+          <CardContent className="text-center py-10">
+            <p className="text-gray-500 mb-4 font-bold">
+              You haven’t created any recipes yet.
+            </p>
             <Button
-              type="submit"
-              disabled={generating}
-              className="w-full sm:w-auto"
+              onClick={() => setShowForm(true)}
+              className="bg-[#4FA740] text-white hover:bg-[#3d8c32] transition-colors duration-200"
             >
-              {generating ? "Cooking..." : "Generate Recipe"}
+              Create Your First Recipe
             </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Recipes Section */}
-      <div>
-        <h2 className="text-2xl font-semibold mb-4 text-green-600">
-          📜 Your Recipes ({recipes.length})
-        </h2>
-
-        {recipes.length === 0 ? (
-          <Card className="py-10 text-center">
-            <CardContent>
-              <p className="text-muted-foreground">
-                No recipes yet! Start by generating one above 🍳
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {recipes.map((recipe) => (
-              <Card
-                key={recipe._id}
-                className="hover:shadow-lg transition-shadow border-green-200"
-              >
-                <CardHeader>
-                  <CardTitle className="text-lg">{recipe.ai_title}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-1 text-sm text-muted-foreground">
-                  <p>
-                    <strong>Ingredients:</strong> {recipe.input}
-                  </p>
-                  <p>
-                    <strong>Cook Time:</strong> {recipe.cook_time}
-                  </p>
-                  <p>
-                    <strong>Servings:</strong> {recipe.servings}
-                  </p>
-                  <p>
-                    <strong>Created:</strong>{" "}
-                    {new Date(recipe.created_at).toLocaleDateString()}
-                  </p>
-                  <Button variant="outline" size="sm" className="w-full mt-4">
-                    View Recipe
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+          </CardContent>
+        </Card>
+      )}
+    </section>
   );
 }

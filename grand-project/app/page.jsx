@@ -1,10 +1,17 @@
 import Link from 'next/link';
-import { createSupabaseServerClient } from '@/lib/supabase/server'; // Import the server client wrapper
+import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 export default async function HomePage() {
-  // Await the creation of the Supabase server client
-  const supabase = await createSupabaseServerClient();
+  const cookieStore = cookies();
+  const supabase = await createSupabaseServerClient(cookieStore);
+  
   const { data: { session } } = await supabase.auth.getSession();
+
+  if (session) {
+    redirect('/app/dashboard');
+  }
 
   return (
     <div className="min-h-screen">
