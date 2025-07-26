@@ -1,3 +1,4 @@
+// app/layout.jsx
 import "./globals.css";
 import { Suspense } from "react";
 import LayoutContent from "@/components/LayoutContent";

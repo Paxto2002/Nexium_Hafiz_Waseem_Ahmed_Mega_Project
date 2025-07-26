@@ -1,4 +1,6 @@
 // lib/supabase/auth-utils.js
+"use server";
+
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
@@ -9,19 +11,26 @@ export async function createSupabaseServerClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
-        get: async (key) => (await cookieStore).get(key)?.value,
-        set: async (key, value, options) => {
+        get(name) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name, value, options) {
           try {
-            (await cookieStore).set({ name: key, value, ...options });
-          } catch (e) {
-            console.error("Error setting cookie:", e);
+            cookieStore.set({ name, value, ...options });
+          } catch (error) {
+            console.error("Cookie set error:", error);
           }
         },
-        remove: async (key, options) => {
+        remove(name, options) {
           try {
-            (await cookieStore).set({ name: key, value: "", ...options });
-          } catch (e) {
-            console.error("Error removing cookie:", e);
+            cookieStore.set({
+              name,
+              value: "",
+              ...options,
+              expires: new Date(0),
+            });
+          } catch (error) {
+            console.error("Cookie remove error:", error);
           }
         },
       },

@@ -21,12 +21,42 @@ export async function middleware(request) {
           return request.cookies.get(name)?.value;
         },
         set(name, value, options) {
-          request.cookies.set({ name, value, ...options });
-          response.cookies.set({ name, value, ...options });
+          request.cookies.set({
+            name,
+            value,
+            ...options,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+          });
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+          });
         },
         remove(name, options) {
-          request.cookies.set({ name, value: "", ...options });
-          response.cookies.set({ name, value: "", ...options });
+          request.cookies.set({
+            name,
+            value: "",
+            ...options,
+            expires: new Date(0),
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+          });
+          response.cookies.set({
+            name,
+            value: "",
+            ...options,
+            expires: new Date(0),
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+          });
         },
       },
     }
@@ -37,9 +67,9 @@ export async function middleware(request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Handle root redirect
+  // Remove the root redirect to prevent loops
   if (request.nextUrl.pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return response; // Allow direct access to home page
   }
 
   // Route protection logic
@@ -47,13 +77,19 @@ export async function middleware(request) {
     protectedRoutes.some((route) => request.nextUrl.pathname.startsWith(route))
   ) {
     if (!user) {
-      return NextResponse.redirect(new URL("/signin", request.url));
+      // Store original path for redirect after login
+      const signInUrl = new URL("/signin", request.url);
+      signInUrl.searchParams.set("from", request.nextUrl.pathname);
+      return NextResponse.redirect(signInUrl);
     }
   }
 
   // Prevent authenticated users from accessing auth pages
-  if (authRoutes.includes(request.nextUrl.pathname) && user) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  if (authRoutes.includes(request.nextUrl.pathname)) {
+    if (user) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    return response; // Allow access to auth pages for unauthenticated users
   }
 
   return response;

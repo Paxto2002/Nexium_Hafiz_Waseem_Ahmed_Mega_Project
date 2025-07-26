@@ -1,3 +1,4 @@
+// app/dashboard/page.jsx
 'use client';
 
 import { useState, useEffect } from "react";
@@ -7,20 +8,38 @@ import { RecipeForm } from "@/components/RecipeForm";
 import { RecipeLoader } from "@/components/RecipeLoader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
   const [showForm, setShowForm] = useState(false);
   const [recipes, setRecipes] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [username, setUsername] = useState("Chef");
+  const router = useRouter();
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        fetchRecipes(session.user.id);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) {
+        router.push('/signin');
+        return;
+      }
+
+      const userId = session.user.id;
+      fetchRecipes(userId);
+
+      // Fetch username from user_profiles table
+      const { data: profile, error } = await supabase
+        .from('user_profiles')
+        .select('name')
+        .eq('user_id', userId)
+        .single();
+
+      if (!error && profile?.name) {
+        setUsername(profile.name);
       }
     });
-  }, []);
+  }, [router]);
 
   const fetchRecipes = async (userId) => {
     try {
@@ -43,9 +62,11 @@ export default function DashboardPage() {
   const handleSubmit = async (recipeData) => {
     try {
       const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const { data, error } = await supabase
         .from('recipes')
-        .insert([recipeData])
+        .insert([{ ...recipeData, user_id: session.user.id }])
         .select();
 
       if (error) throw error;
@@ -61,8 +82,8 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">
-            Welcome back, Chef!
+          <h1 className="text-3xl font-extrabold text-gray-500 tracking-tight">
+            Welcome back, Chef {username}!
           </h1>
           <p className="text-sm text-gray-500 mt-1 font-bold">
             Ready to whip up something new?
@@ -108,7 +129,7 @@ export default function DashboardPage() {
         <Card className="mt-6 shadow-md border border-dashed border-gray-300 bg-white/5">
           <CardContent className="text-center py-10">
             <p className="text-gray-500 mb-4 font-bold">
-              You haven’t created any recipes yet.
+              You haven't created any recipes yet.
             </p>
             <Button
               onClick={() => setShowForm(true)}

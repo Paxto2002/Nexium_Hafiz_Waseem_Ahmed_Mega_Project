@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-export function createSupabaseServerClient() {
+export async function createSupabaseServerClient() {
   const cookieStore = cookies();
 
   return createServerClient(
@@ -9,16 +9,15 @@ export function createSupabaseServerClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
-        get(name) {
-          return cookieStore.get(name)?.value;
+        async get(name) {
+          return (await cookieStore).get(name)?.value;
         },
-        set(name, value, options) {
+        async set(name, value, options) {
           try {
-            cookieStore.set({
+            (await cookieStore).set({
               name,
               value,
               ...options,
-              // Ensure secure cookies in production
               secure: process.env.NODE_ENV === "production",
               sameSite: "lax",
               path: "/",
@@ -27,9 +26,9 @@ export function createSupabaseServerClient() {
             console.error("Cookie set error:", error);
           }
         },
-        remove(name, options) {
+        async remove(name, options) {
           try {
-            cookieStore.set({
+            (await cookieStore).set({
               name,
               value: "",
               ...options,

@@ -1,143 +1,101 @@
+// components/RecipeForm.jsx
 'use client';
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from '@/components/ui/card';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useUser } from "@/lib/supabase/use-user"; // Updated import path
+import { createClient } from "@/lib/supabase/client";
 
-export function RecipeForm({
-  onSubmit,
-  initialData = {},
-  loading = false,
-  onCancel,
-}) {
-  const [formData, setFormData] = useState({
-    title: initialData.title || '',
-    ingredients: initialData.ingredients || '',
-    instructions: initialData.instructions || '',
-    cookTime: initialData.cookTime || '',
-    servings: initialData.servings || 2,
-  });
+export function RecipeForm({ onSubmit, onCancel }) {
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const { user } = useUser();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(formData);
+  const handleSubmit = async () => {
+    setError(null);
+
+    if (!input.trim()) {
+      setError("Please enter some ingredients.");
+      return;
+    }
+
+    if (!user?.id) {
+      setError("User not authenticated.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.user?.id) {
+        throw new Error("Session expired");
+      }
+
+      const res = await fetch("https://paxto2002.app.n8n.cloud/webhook/chefpaxto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: session.user.id,
+          input: input.trim(),
+        }),
+      });
+
+      if (!res.ok) {
+        const errorBody = await res.text();
+        throw new Error(`Request failed: ${res.status} - ${errorBody}`);
+      }
+
+      const data = await res.json();
+      setInput("");
+      if (onSubmit) onSubmit(data);
+    } catch (err) {
+      console.error("Failed to send to n8n:", err);
+      setError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <Card className="w-full max-w-2xl border border-green-200 shadow-md">
+    <Card className="w-full max-w-xl mx-auto shadow-md border border-green-200">
       <CardHeader>
         <CardTitle className="text-green-800">
-          {initialData.id ? 'Edit Recipe' : 'Create New Recipe'}
+          🍳 What ingredients do you have?
         </CardTitle>
       </CardHeader>
-
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Title */}
-          <div className="space-y-1">
-            <label className="block text-sm font-semibold text-gray-800">
-              Title*
-            </label>
-            <Input
-              value={formData.title}
-              onChange={(e) =>
-                setFormData({ ...formData, title: e.target.value })
-              }
-              placeholder="Recipe title"
-              required
-            />
-          </div>
+        <input
+          className="w-full border px-3 py-2 rounded"
+          type="text"
+          placeholder="e.g. eggs, cheese, tomatoes"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          disabled={loading}
+        />
 
-          {/* Ingredients */}
-          <div className="space-y-1">
-            <label className="block text-sm font-semibold text-gray-800">
-              Ingredients*
-            </label>
-            <Textarea
-              value={formData.ingredients}
-              onChange={(e) =>
-                setFormData({ ...formData, ingredients: e.target.value })
-              }
-              placeholder="List ingredients (separate by commas)"
-              rows={3}
-              required
-            />
-          </div>
+        {error && <p className="text-red-600 mt-2 text-sm">{error}</p>}
 
-          {/* Instructions */}
-          <div className="space-y-1">
-            <label className="block text-sm font-semibold text-gray-800">
-              Instructions*
-            </label>
-            <Textarea
-              value={formData.instructions}
-              onChange={(e) =>
-                setFormData({ ...formData, instructions: e.target.value })
-              }
-              placeholder="Step-by-step instructions"
-              rows={5}
-              required
-            />
-          </div>
-
-          {/* Cook Time + Servings */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-gray-800">
-                Cook Time
-              </label>
-              <Input
-                value={formData.cookTime}
-                onChange={(e) =>
-                  setFormData({ ...formData, cookTime: e.target.value })
-                }
-                placeholder="30 mins"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-gray-800">
-                Servings
-              </label>
-              <Input
-                type="number"
-                min="1"
-                value={formData.servings}
-                onChange={(e) =>
-                  setFormData({ ...formData, servings: e.target.value })
-                }
-              />
-            </div>
-          </div>
-
-          {/* Buttons */}
-          <div className="flex justify-end gap-3 pt-4">
-            {onCancel && (
-              <Button
-                type="button"
-                variant="outline"
-                className="border-green-600 text-green-700 hover:bg-green-50"
-                onClick={onCancel}
-                disabled={loading}
-              >
-                Cancel
-              </Button>
-            )}
-            <Button
-              type="submit"
-              disabled={loading}
-              className="bg-[#4fa740] hover:bg-[#449c3c] text-white"
-            >
-              {loading ? 'Saving...' : 'Save Recipe'}
-            </Button>
-          </div>
-        </form>
+        <div className="mt-4 flex justify-between">
+          <Button 
+            variant="outline" 
+            onClick={onCancel}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={loading || !input.trim()}
+            className="bg-[#4fa740] text-white hover:bg-[#449c3c]"
+          >
+            {loading ? "Generating..." : "Generate Recipe"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
