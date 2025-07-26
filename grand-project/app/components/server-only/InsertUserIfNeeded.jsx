@@ -44,4 +44,4 @@ export async function ensureUserProfile() {
   }
 
   return user
-}
+} 

@@ -1,3 +1,4 @@
+// app/page.jsx
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import HomeClient from '@/components/HomeClient';

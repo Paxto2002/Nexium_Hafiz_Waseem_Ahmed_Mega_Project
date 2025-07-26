@@ -1,4 +1,3 @@
-// components/LayoutContent.jsx
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -15,7 +14,7 @@ export default function LayoutContent({ children }) {
       {!isDashboard && <Navbar />}
       {isDashboard && <DashboardHeader />}
 
-      <main className="flex-1">
+      <main className="flex-1 flex flex-col">
         {children}
       </main>
 
