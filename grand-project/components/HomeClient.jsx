@@ -73,7 +73,7 @@ export default function HomeClient() {
         className="flex-1"
       >
         {/* Hero Section */}
-        <section className="py-28 text-center relative overflow-hidden bg-gradient-to-r from-green-100/50 to-white">
+        <section className="py-16 text-center relative overflow-hidden bg-gradient-to-r from-green-100/50 to-white">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 0.1 }}
@@ -150,7 +150,7 @@ export default function HomeClient() {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.8 }}
-          className="py-24 bg-white/50 backdrop-blur-sm relative z-10"
+          className="py-16 bg-white/50 backdrop-blur-sm relative z-10"
         >
           <div className="max-w-6xl mx-auto px-6">
             <motion.div
@@ -219,7 +219,7 @@ export default function HomeClient() {
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="bg-gradient-to-r from-emerald-600 to-green-600 text-white py-24 text-center relative overflow-hidden"
+          className="bg-gradient-to-r from-emerald-600 to-green-600 text-white py-16 text-center relative overflow-hidden"
         >
           <div className="absolute inset-0 opacity-10"></div>
           <motion.div

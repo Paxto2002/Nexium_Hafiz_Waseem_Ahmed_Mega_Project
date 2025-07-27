@@ -1,21 +1,19 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
+import Link from "next/link";
 
-function Footer() {
+export default function Footer() {
   return (
-    <footer className="bg-green-50 border-t border-green-200 py-10 px-4 text-green-800">
+    <footer className="bg-green-50 border-t mt-15 border-green-200 py-8 px-4 text-green-800">
       <div className="max-w-6xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6 text-sm">
         <div>
           <h4 className="font-semibold mb-2">Explore</h4>
           <ul className="space-y-1">
-            <li><a href="/features" className="hover:underline">Features</a></li>
-            <li><a href="/pricing" className="hover:underline">Pricing</a></li>
-            <li><a href="/docs" className="hover:underline">Docs</a></li>
-            <li><a href="/signin" className="hover:underline">Sign In</a></li>
+            <li><Link href="/features" className="hover:underline">Features</Link></li>
+            <li><Link href="/pricing" className="hover:underline">Pricing</Link></li>
+            <li><Link href="/docs" className="hover:underline">Docs</Link></li>
+            <li><Link href="/signin" className="hover:underline">Sign In</Link></li>
           </ul>
         </div>
         <div className="col-span-2 md:col-span-3">
@@ -29,7 +27,7 @@ function Footer() {
           <p className="text-xs text-green-600">
             © {new Date().getFullYear()} <span className="font-semibold">Chef Paxto</span>. All rights reserved.
           </p>
-          <a href="/">
+          <Link href="/">
             <Image
               src="/chef_logo.png"
               alt="Chef Paxto Logo"
@@ -38,39 +36,9 @@ function Footer() {
               style={{ height: "auto", width: "auto" }}
               className="inline-block mx-auto md:mx-0"
             />
-          </a>
+          </Link>
         </div>
       </div>
     </footer>
-  );
-}
-
-export default function DashboardClientLayout({ children }) {
-  const router = useRouter();
-  const [hasMounted, setHasMounted] = useState(false);
-
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
-  const handleSignOut = async () => {
-    const supabase = createClient();
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error("Error signing out:", error);
-    } else {
-      router.push("/signin");
-    }
-  };
-
-  if (!hasMounted) return <div className="w-full min-h-screen bg-white" />;
-
-  return (
-    <div className="flex flex-col min-h-screen">
-      <main className="flex-1 p-4 md:p-6">
-        {children}
-      </main>
-      <Footer />
-    </div>
   );
 }
