@@ -33,15 +33,13 @@ export default function PricingPageClient() {
       className="min-h-screen bg-white py-20 px-6"
     >
       {/* Header */}
-      <motion.section
-        variants={fadeUp}
-        className="text-center mb-16"
-      >
+      <motion.section variants={fadeUp} className="text-center mb-16">
         <h1 className="text-5xl font-extrabold text-green-700 mb-4">
           Simple, Transparent Pricing
         </h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-          Whether you're an occasional cook or a recipe wizard — we’ve got a plan for you.
+          Whether you're an occasional cook or a recipe wizard — we’ve got a
+          plan for you.
         </p>
       </motion.section>
 
@@ -100,19 +98,22 @@ export default function PricingPageClient() {
       </section>
 
       {/* CTA */}
-      <motion.div
-        variants={fadeUp}
-        className="text-center mt-20"
-      >
-        <Badge variant="outline" className="text-green-700 border-green-600 mb-4">
-          Pay only if it’s worth it
+      <motion.div variants={fadeUp} className="text-center mt-20">
+        <Badge
+          variant="outline"
+          className="text-green-700 border-green-600 mb-4"
+        >
+          Pay only if it's worth it
         </Badge>
         <h2 className="text-3xl font-bold mb-6 text-gray-800">
           Try Chef Paxto free, upgrade anytime.
         </h2>
         <motion.div whileHover={{ scale: 1.05 }}>
-          <Button asChild className="text-lg  px-6 py-4 rounded-xl">
-            <a href="/signup" className="text-white bg[#4FA740]">Start for Free</a>
+          <Button
+            className="text-lg px-6 py-4 rounded-xl bg-[#4FA740] hover:bg-[#3e8c35] text-white"
+            onClick={() => (window.location.href = "/signup")}
+          >
+            Start for Free
           </Button>
         </motion.div>
       </motion.div>
