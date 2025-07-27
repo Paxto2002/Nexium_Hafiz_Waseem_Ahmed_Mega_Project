@@ -1,4 +1,3 @@
-// app/dashboard/page.jsx
 'use client';
 
 import { useState, useEffect } from "react";
@@ -19,6 +18,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const supabase = createClient();
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) {
         router.push('/signin');
@@ -26,16 +26,24 @@ export default function DashboardPage() {
       }
 
       const userId = session.user.id;
+      const nameFromSignup = session.user.user_metadata?.name;
       fetchRecipes(userId);
 
-      // Fetch username from user_profiles table
       const { data: profile, error } = await supabase
         .from('user_profiles')
         .select('name')
         .eq('user_id', userId)
         .single();
 
-      if (!error && profile?.name) {
+      if (!profile && nameFromSignup) {
+        await supabase.from('user_profiles').insert({
+          user_id: userId,
+          email: session.user.email,
+          name: nameFromSignup,
+        });
+
+        setUsername(nameFromSignup);
+      } else if (profile?.name) {
         setUsername(profile.name);
       }
     });
@@ -63,7 +71,7 @@ export default function DashboardPage() {
     try {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       const { data, error } = await supabase
         .from('recipes')
         .insert([{ ...recipeData, user_id: session.user.id }])
