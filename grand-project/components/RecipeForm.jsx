@@ -1,10 +1,9 @@
-// components/RecipeForm.jsx
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useUser } from "@/lib/supabase/use-user"; // Updated import path
+import { useUser } from "@/lib/supabase/use-user";
 import { createClient } from "@/lib/supabase/client";
 
 export function RecipeForm({ onSubmit, onCancel }) {
@@ -13,16 +12,22 @@ export function RecipeForm({ onSubmit, onCancel }) {
   const [error, setError] = useState(null);
   const { user } = useUser();
 
+  // Reset error when input changes
+  useEffect(() => {
+    if (error) setError(null);
+  }, [input]);
+
   const handleSubmit = async () => {
     setError(null);
 
+    // Validate input
     if (!input.trim()) {
       setError("Please enter some ingredients.");
       return;
     }
 
     if (!user?.id) {
-      setError("User not authenticated.");
+      setError("Please sign in to generate recipes.");
       return;
     }
 
@@ -30,32 +35,65 @@ export function RecipeForm({ onSubmit, onCancel }) {
 
     try {
       const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
       
-      if (!session?.user?.id) {
-        throw new Error("Session expired");
+      if (authError || !session?.user?.id) {
+        throw new Error(authError?.message || "Session expired. Please refresh the page.");
       }
 
-      const res = await fetch("https://paxto2002.app.n8n.cloud/webhook/chefpaxto", {
+      // First make OPTIONS preflight request
+      const preflight = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL, {
+        method: "OPTIONS",
+        headers: {
+          "Origin": window.location.origin,
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers": "Content-Type, X-Chef-Secret"
+        }
+      });
+
+      if (!preflight.ok) {
+        throw new Error("CORS configuration error. Please try again later.");
+      }
+
+      // Main request
+      const res = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "X-Chef-Secret": process.env.NEXT_PUBLIC_CHEF_WEBHOOK_SECRET,
+          "Origin": window.location.origin
+        },
         body: JSON.stringify({
           user_id: session.user.id,
           input: input.trim(),
+          client_info: {
+            user_agent: navigator.userAgent,
+            screen_resolution: `${window.screen.width}x${window.screen.height}`,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          }
         }),
       });
 
       if (!res.ok) {
-        const errorBody = await res.text();
-        throw new Error(`Request failed: ${res.status} - ${errorBody}`);
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `Recipe generation failed (${res.status})`);
       }
 
       const data = await res.json();
       setInput("");
       if (onSubmit) onSubmit(data);
     } catch (err) {
-      console.error("Failed to send to n8n:", err);
-      setError(err.message || "Something went wrong. Please try again.");
+      console.error("API Error:", {
+        error: err.message,
+        input: input.trim(),
+        timestamp: new Date().toISOString()
+      });
+      
+      setError(
+        err.message.includes("CORS") 
+          ? "Connection error. Please try again."
+          : err.message
+      );
     } finally {
       setLoading(false);
     }
@@ -70,30 +108,41 @@ export function RecipeForm({ onSubmit, onCancel }) {
       </CardHeader>
       <CardContent>
         <input
-          className="w-full border px-3 py-2 rounded"
+          className="w-full border px-3 py-2 rounded mb-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
           type="text"
           placeholder="e.g. eggs, cheese, tomatoes"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={loading}
+          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
         />
 
-        {error && <p className="text-red-600 mt-2 text-sm">{error}</p>}
+        {error && (
+          <p className="text-red-600 mt-2 text-sm animate-fade-in">
+            {error}
+          </p>
+        )}
 
-        <div className="mt-4 flex justify-between">
+        <div className="mt-4 flex justify-between gap-2">
           <Button 
             variant="outline" 
             onClick={onCancel}
             disabled={loading}
+            className="flex-1"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={loading || !input.trim()}
-            className="bg-[#4fa740] text-white hover:bg-[#449c3c]"
+            className="flex-1 bg-[#4fa740] text-white hover:bg-[#449c3c] transition-colors"
           >
-            {loading ? "Generating..." : "Generate Recipe"}
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <span className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                Generating...
+              </span>
+            ) : "Generate Recipe"}
           </Button>
         </div>
       </CardContent>
