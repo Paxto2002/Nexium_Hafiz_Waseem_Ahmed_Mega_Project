@@ -12,7 +12,6 @@ export function RecipeForm({ onSubmit, onCancel }) {
   const [error, setError] = useState(null);
   const { user } = useUser();
 
-  // Reset error when input changes
   useEffect(() => {
     if (error) setError(null);
   }, [input]);
@@ -20,7 +19,6 @@ export function RecipeForm({ onSubmit, onCancel }) {
   const handleSubmit = async () => {
     setError(null);
 
-    // Validate input
     if (!input.trim()) {
       setError("Please enter some ingredients.");
       return;
@@ -41,27 +39,10 @@ export function RecipeForm({ onSubmit, onCancel }) {
         throw new Error(authError?.message || "Session expired. Please refresh the page.");
       }
 
-      // First make OPTIONS preflight request
-      const preflight = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL, {
-        method: "OPTIONS",
+      const response = await fetch('/api/recipe-webhook', {
+        method: 'POST',
         headers: {
-          "Origin": window.location.origin,
-          "Access-Control-Request-Method": "POST",
-          "Access-Control-Request-Headers": "Content-Type, X-Chef-Secret"
-        }
-      });
-
-      if (!preflight.ok) {
-        throw new Error("CORS configuration error. Please try again later.");
-      }
-
-      // Main request
-      const res = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "X-Chef-Secret": process.env.NEXT_PUBLIC_CHEF_WEBHOOK_SECRET,
-          "Origin": window.location.origin
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           user_id: session.user.id,
@@ -74,12 +55,12 @@ export function RecipeForm({ onSubmit, onCancel }) {
         }),
       });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || `Recipe generation failed (${res.status})`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Recipe generation failed (${response.status})`);
       }
 
-      const data = await res.json();
+      const data = await response.json();
       setInput("");
       if (onSubmit) onSubmit(data);
     } catch (err) {
@@ -90,8 +71,8 @@ export function RecipeForm({ onSubmit, onCancel }) {
       });
       
       setError(
-        err.message.includes("CORS") 
-          ? "Connection error. Please try again."
+        err.message.includes("Failed to fetch") 
+          ? "Network error. Please check your connection and try again."
           : err.message
       );
     } finally {

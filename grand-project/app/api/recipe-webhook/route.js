@@ -1,50 +1,139 @@
-import { createClient } from "@/lib/supabase/server";
+"use client";
 
-export async function POST(req) {
-  const body = await req.json();
-  const supabase = createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useUser } from "@/lib/supabase/use-user";
+import { createClient } from "@/lib/supabase/client";
 
-  if (!session) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-    });
-  }
+export function RecipeForm({ onSubmit, onCancel }) {
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const { user } = useUser();
 
-  const user_id = session.user.id;
-  const input = body.input;
+  useEffect(() => {
+    if (error) setError(null);
+  }, [input]);
 
-  const n8nWebhookURL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
+  const handleSubmit = async () => {
+    setError(null);
 
-  if (!n8nWebhookURL) {
-    return new Response(
-      JSON.stringify({ error: "Webhook URL not configured" }),
-      {
-        status: 500,
+    if (!input.trim()) {
+      setError("Please enter some ingredients.");
+      return;
+    }
+
+    if (!user?.id) {
+      setError("Please sign in to generate recipes.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const supabase = createClient();
+      const {
+        data: { session },
+        error: authError,
+      } = await supabase.auth.getSession();
+
+      if (authError || !session?.user?.id) {
+        throw new Error(
+          authError?.message || "Session expired. Please refresh the page."
+        );
       }
-    );
-  }
 
-  const n8nRes = await fetch(n8nWebhookURL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Chef-Secret": process.env.NEXT_PUBLIC_CHEF_WEBHOOK_SECRET,
-      Origin: req.headers.get("origin") || "https://chefpaxto.vercel.app",
-    },
-    body: JSON.stringify({
-      user_id,
-      input,
-      client_info: {
-        user_agent: req.headers.get("user-agent"),
-        origin: req.headers.get("origin"),
+      const response = await fetch("/api/recipe-webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: session.user.id,
+          input: input.trim(),
+          client_info: {
+            user_agent: navigator.userAgent,
+            screen_resolution: `${window.screen.width}x${window.screen.height}`,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || `Recipe generation failed (${response.status})`
+        );
+      }
+
+      const data = await response.json();
+      setInput("");
+      if (onSubmit) onSubmit(data);
+    } catch (err) {
+      console.error("API Error:", {
+        error: err.message,
+        input: input.trim(),
         timestamp: new Date().toISOString(),
-      },
-    }),
-  });
+      });
 
-  const n8nData = await n8nRes.json();
-  return new Response(JSON.stringify(n8nData), { status: 200 });
+      setError(
+        err.message.includes("Failed to fetch")
+          ? "Network error. Please check your connection and try again."
+          : err.message
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card className="w-full max-w-xl mx-auto shadow-md border border-green-200">
+      <CardHeader>
+        <CardTitle className="text-green-800">
+          🍳 What ingredients do you have?
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <input
+          className="w-full border px-3 py-2 rounded mb-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          type="text"
+          placeholder="e.g. eggs, cheese, tomatoes"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          disabled={loading}
+          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+        />
+
+        {error && (
+          <p className="text-red-600 mt-2 text-sm animate-fade-in">{error}</p>
+        )}
+
+        <div className="mt-4 flex justify-between gap-2">
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            disabled={loading}
+            className="flex-1"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={loading || !input.trim()}
+            className="flex-1 bg-[#4fa740] text-white hover:bg-[#449c3c] transition-colors"
+          >
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <span className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                Generating...
+              </span>
+            ) : (
+              "Generate Recipe"
+            )}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }

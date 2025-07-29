@@ -1,3 +1,4 @@
+// app/dashboard/recipe/[id]/page.jsx
 import { createServerClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
