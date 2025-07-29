@@ -39,7 +39,6 @@ export function RecipeForm({ onSubmit, onCancel }) {
         throw new Error(authError?.message || "Session expired. Please refresh the page.");
       }
 
-      // First try the direct API route
       const response = await fetch('/api/recipe-webhook', {
         method: 'POST',
         headers: {
@@ -51,19 +50,21 @@ export function RecipeForm({ onSubmit, onCancel }) {
           client_info: {
             user_agent: navigator.userAgent,
             screen_resolution: `${window.screen.width}x${window.screen.height}`,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            request_id: crypto.randomUUID() // Unique ID for each request
           }
         }),
       });
 
-      const responseData = await response.json();
-
       if (!response.ok) {
-        throw new Error(responseData.error || `Recipe generation failed (${response.status})`);
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || `Recipe generation failed (${response.status})`;
+        throw new Error(errorMessage);
       }
 
+      const data = await response.json();
       setInput("");
-      if (onSubmit) onSubmit(responseData);
+      if (onSubmit) onSubmit(data);
     } catch (err) {
       console.error("API Error:", {
         error: err.message,
@@ -72,10 +73,12 @@ export function RecipeForm({ onSubmit, onCancel }) {
       });
       
       setError(
-        err.message.includes("Failed to fetch") 
-          ? "Network error. Please check your connection and try again."
-          : err.message.includes("405")
-          ? "Server configuration error. Please try again later."
+        err.message.includes("409") 
+          ? "You already have a similar recipe. Try different ingredients."
+          : err.message.includes("Failed to fetch")
+          ? "Network error. Please check your connection."
+          : err.message.includes("401")
+          ? "Session expired. Please refresh the page."
           : err.message
       );
     } finally {

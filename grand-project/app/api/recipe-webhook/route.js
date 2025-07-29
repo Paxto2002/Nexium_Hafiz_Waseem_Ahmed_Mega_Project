@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 export async function POST(request) {
-  // Handle CORS preflight request
+  // Handle CORS preflight
   if (request.method === "OPTIONS") {
     return new Response(null, {
       headers: {
@@ -14,40 +14,47 @@ export async function POST(request) {
   }
 
   try {
-    // Parse the request body
-    const requestBody = await request.json();
-    const { user_id, input, client_info } = requestBody;
-
+    const { user_id, input, client_info } = await request.json();
     const supabase = createClient();
+
+    // Verify session
     const {
       data: { session },
+      error: authError,
     } = await supabase.auth.getSession();
+    if (authError || !session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    if (!session) {
+    // Check for duplicate recipes
+    const { data: existing, error: queryError } = await supabase
+      .from("recipes")
+      .select("id")
+      .eq("user_id", user_id)
+      .ilike("ingredients", `%${input}%`)
+      .limit(1);
+
+    if (queryError) throw queryError;
+    if (existing?.length > 0) {
       return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401, headers: { "Access-Control-Allow-Origin": "*" } }
+        { error: "Similar recipe already exists" },
+        { status: 409 }
       );
     }
 
-    if (!process.env.N8N_WEBHOOK_URL || !process.env.CHEF_WEBHOOK_SECRET) {
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500, headers: { "Access-Control-Allow-Origin": "*" } }
-      );
-    }
-
-    // Forward the request to n8n
-    const n8nResponse = await fetch(process.env.N8N_WEBHOOK_URL, {
+    // Forward to n8n
+    const n8nResponse = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Chef-Secret": process.env.CHEF_WEBHOOK_SECRET,
+        "X-Chef-Secret": process.env.NEXT_PUBLIC_CHEF_WEBHOOK_SECRET,
       },
       body: JSON.stringify({
         user_id,
         input,
         client_info,
+        supabase_user: session.user,
+        groq_api_key: process.env.GROQ_API_KEY,
       }),
     });
 
@@ -56,10 +63,7 @@ export async function POST(request) {
       throw new Error(errorData.message || `n8n error: ${n8nResponse.status}`);
     }
 
-    const data = await n8nResponse.json();
-    return NextResponse.json(data, {
-      headers: { "Access-Control-Allow-Origin": "*" },
-    });
+    return NextResponse.json(await n8nResponse.json());
   } catch (error) {
     console.error("API Error:", {
       error: error.message,
@@ -72,10 +76,7 @@ export async function POST(request) {
           ? "Service unavailable. Please try again later."
           : error.message,
       },
-      {
-        status: 500,
-        headers: { "Access-Control-Allow-Origin": "*" },
-      }
+      { status: 500 }
     );
   }
 }
