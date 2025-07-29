@@ -1,82 +1,50 @@
 import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
 
-export async function POST(request) {
-  // Handle CORS preflight
-  if (request.method === "OPTIONS") {
-    return new Response(null, {
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-      },
+export async function POST(req) {
+  const body = await req.json();
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
     });
   }
 
-  try {
-    const { user_id, input, client_info } = await request.json();
-    const supabase = createClient();
+  const user_id = session.user.id;
+  const input = body.input;
 
-    // Verify session
-    const {
-      data: { session },
-      error: authError,
-    } = await supabase.auth.getSession();
-    if (authError || !session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const n8nWebhookURL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
 
-    // Check for duplicate recipes
-    const { data: existing, error: queryError } = await supabase
-      .from("recipes")
-      .select("id")
-      .eq("user_id", user_id)
-      .ilike("ingredients", `%${input}%`)
-      .limit(1);
-
-    if (queryError) throw queryError;
-    if (existing?.length > 0) {
-      return NextResponse.json(
-        { error: "Similar recipe already exists" },
-        { status: 409 }
-      );
-    }
-
-    // Forward to n8n
-    const n8nResponse = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Chef-Secret": process.env.NEXT_PUBLIC_CHEF_WEBHOOK_SECRET,
-      },
-      body: JSON.stringify({
-        user_id,
-        input,
-        client_info,
-        supabase_user: session.user,
-        groq_api_key: process.env.GROQ_API_KEY,
-      }),
-    });
-
-    if (!n8nResponse.ok) {
-      const errorData = await n8nResponse.json().catch(() => ({}));
-      throw new Error(errorData.message || `n8n error: ${n8nResponse.status}`);
-    }
-
-    return NextResponse.json(await n8nResponse.json());
-  } catch (error) {
-    console.error("API Error:", {
-      error: error.message,
-      timestamp: new Date().toISOString(),
-    });
-
-    return NextResponse.json(
+  if (!n8nWebhookURL) {
+    return new Response(
+      JSON.stringify({ error: "Webhook URL not configured" }),
       {
-        error: error.message.includes("Failed to fetch")
-          ? "Service unavailable. Please try again later."
-          : error.message,
-      },
-      { status: 500 }
+        status: 500,
+      }
     );
   }
+
+  const n8nRes = await fetch(n8nWebhookURL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Chef-Secret": process.env.NEXT_PUBLIC_CHEF_WEBHOOK_SECRET,
+      Origin: req.headers.get("origin") || "https://chefpaxto.vercel.app",
+    },
+    body: JSON.stringify({
+      user_id,
+      input,
+      client_info: {
+        user_agent: req.headers.get("user-agent"),
+        origin: req.headers.get("origin"),
+        timestamp: new Date().toISOString(),
+      },
+    }),
+  });
+
+  const n8nData = await n8nRes.json();
+  return new Response(JSON.stringify(n8nData), { status: 200 });
 }

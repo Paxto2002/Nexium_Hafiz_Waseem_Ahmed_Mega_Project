@@ -12,6 +12,7 @@ export function RecipeForm({ onSubmit, onCancel }) {
   const [error, setError] = useState(null);
   const { user } = useUser();
 
+  // Reset error when input changes
   useEffect(() => {
     if (error) setError(null);
   }, [input]);
@@ -19,6 +20,7 @@ export function RecipeForm({ onSubmit, onCancel }) {
   const handleSubmit = async () => {
     setError(null);
 
+    // Validate input
     if (!input.trim()) {
       setError("Please enter some ingredients.");
       return;
@@ -39,10 +41,27 @@ export function RecipeForm({ onSubmit, onCancel }) {
         throw new Error(authError?.message || "Session expired. Please refresh the page.");
       }
 
-      const response = await fetch('/api/recipe-webhook', {
-        method: 'POST',
+      // First make OPTIONS preflight request
+      const preflight = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL, {
+        method: "OPTIONS",
         headers: {
-          'Content-Type': 'application/json',
+          "Origin": window.location.origin,
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers": "Content-Type, X-Chef-Secret"
+        }
+      });
+
+      if (!preflight.ok) {
+        throw new Error("CORS configuration error. Please try again later.");
+      }
+
+      // Main request
+      const res = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "X-Chef-Secret": process.env.NEXT_PUBLIC_CHEF_WEBHOOK_SECRET,
+          "Origin": window.location.origin
         },
         body: JSON.stringify({
           user_id: session.user.id,
@@ -50,19 +69,17 @@ export function RecipeForm({ onSubmit, onCancel }) {
           client_info: {
             user_agent: navigator.userAgent,
             screen_resolution: `${window.screen.width}x${window.screen.height}`,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            request_id: crypto.randomUUID() // Unique ID for each request
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
           }
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.error || `Recipe generation failed (${response.status})`;
-        throw new Error(errorMessage);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `Recipe generation failed (${res.status})`);
       }
 
-      const data = await response.json();
+      const data = await res.json();
       setInput("");
       if (onSubmit) onSubmit(data);
     } catch (err) {
@@ -73,12 +90,8 @@ export function RecipeForm({ onSubmit, onCancel }) {
       });
       
       setError(
-        err.message.includes("409") 
-          ? "You already have a similar recipe. Try different ingredients."
-          : err.message.includes("Failed to fetch")
-          ? "Network error. Please check your connection."
-          : err.message.includes("401")
-          ? "Session expired. Please refresh the page."
+        err.message.includes("CORS") 
+          ? "Connection error. Please try again."
           : err.message
       );
     } finally {
