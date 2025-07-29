@@ -1,4 +1,3 @@
-// app/api/recipe-webhook/route.js
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req) {
@@ -17,17 +16,32 @@ export async function POST(req) {
   const user_id = session.user.id;
   const input = body.input;
 
-  // 👉 n8n Webhook URL (replace with your actual n8n webhook URL)
-  const n8nWebhookURL = "https://YOUR_N8N_DOMAIN/webhook/chat-message";
+  const n8nWebhookURL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
+
+  if (!n8nWebhookURL) {
+    return new Response(
+      JSON.stringify({ error: "Webhook URL not configured" }),
+      {
+        status: 500,
+      }
+    );
+  }
 
   const n8nRes = await fetch(n8nWebhookURL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Chef-Secret": process.env.NEXT_PUBLIC_CHEF_WEBHOOK_SECRET,
+      Origin: req.headers.get("origin") || "https://chefpaxto.vercel.app",
+    },
     body: JSON.stringify({
-      sessionId: session.user.email, // Optional: You can customize this
-      action: "sendMessage",
-      chatInput: input,
-      user_id, // Pass user_id to n8n
+      user_id,
+      input,
+      client_info: {
+        user_agent: req.headers.get("user-agent"),
+        origin: req.headers.get("origin"),
+        timestamp: new Date().toISOString(),
+      },
     }),
   });
 
