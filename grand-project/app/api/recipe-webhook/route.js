@@ -12,6 +12,7 @@ export function RecipeForm({ onSubmit, onCancel }) {
   const [error, setError] = useState(null);
   const { user } = useUser();
 
+  // Reset error when input changes
   useEffect(() => {
     if (error) setError(null);
   }, [input]);
@@ -44,30 +45,61 @@ export function RecipeForm({ onSubmit, onCancel }) {
         );
       }
 
-      const response = await fetch("/api/recipe-webhook", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          user_id: session.user.id,
-          input: input.trim(),
-          client_info: {
-            user_agent: navigator.userAgent,
-            screen_resolution: `${window.screen.width}x${window.screen.height}`,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      // First try direct n8n call (your original approach)
+      let data;
+      try {
+        const res = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Chef-Secret": process.env.NEXT_PUBLIC_CHEF_WEBHOOK_SECRET,
           },
-        }),
-      });
+          body: JSON.stringify({
+            user_id: session.user.id,
+            input: input.trim(),
+            client_info: {
+              user_agent: navigator.userAgent,
+              screen_resolution: `${window.screen.width}x${window.screen.height}`,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            },
+          }),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.error || `Recipe generation failed (${response.status})`
-        );
+        if (!res.ok) {
+          throw new Error(`Direct call failed with status ${res.status}`);
+        }
+
+        data = await res.json();
+      } catch (directError) {
+        console.log("Direct call failed, falling back to proxy:", directError);
+
+        // Fallback to proxy approach if direct call fails
+        const proxyRes = await fetch("/api/recipe-webhook", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: session.user.id,
+            input: input.trim(),
+            client_info: {
+              user_agent: navigator.userAgent,
+              screen_resolution: `${window.screen.width}x${window.screen.height}`,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            },
+          }),
+        });
+
+        if (!proxyRes.ok) {
+          const errorData = await proxyRes.json().catch(() => ({}));
+          throw new Error(
+            errorData.error || `Recipe generation failed (${proxyRes.status})`
+          );
+        }
+
+        data = await proxyRes.json();
       }
 
-      const data = await response.json();
       setInput("");
       if (onSubmit) onSubmit(data);
     } catch (err) {
