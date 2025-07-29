@@ -13,14 +13,16 @@ export function RecipeCard({ recipe, onEdit, onDelete, onView }) {
   return (
     <Card className="hover:shadow-lg border border-green-200 transition-shadow h-full flex flex-col">
       <CardHeader>
-        <CardTitle className="text-lg text-green-800">{recipe.title}</CardTitle>
+        <CardTitle className="text-lg text-green-800">
+          {recipe.ai_title || recipe.title || 'Untitled'}
+        </CardTitle>
       </CardHeader>
 
       <CardContent className="flex-1 space-y-2 text-sm text-gray-700">
         <div>
           <p className="font-semibold text-gray-900">Ingredients:</p>
           <p className="text-muted-foreground line-clamp-2">
-            {recipe.ingredients}
+            {recipe.ai_ingredients || recipe.ingredients}
           </p>
         </div>
 
