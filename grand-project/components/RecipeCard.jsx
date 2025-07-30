@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 
-export function RecipeCard({ recipe, onEdit, onDelete, onView }) {
+export function RecipeCard({ recipe, onEdit, onDelete }) {
   const supabase = createClient();
 
   const handleDelete = async () => {
@@ -27,7 +27,7 @@ export function RecipeCard({ recipe, onEdit, onDelete, onView }) {
       return alert('Failed to delete recipe. Please try again.');
     }
 
-    if (onDelete) onDelete(recipe.id); // remove from UI
+    if (onDelete) onDelete(recipe.id);
   };
 
   return (
@@ -75,33 +75,22 @@ export function RecipeCard({ recipe, onEdit, onDelete, onView }) {
           </div>
         </CardContent>
 
-        <CardFooter className="flex justify-between gap-2 mt-auto pt-4">
+        <CardFooter className="flex justify-end gap-2 mt-auto pt-4">
           <Button
             variant="outline"
             size="sm"
             className="border-green-600 text-green-700 hover:bg-green-50"
-            onClick={() => onView(recipe)}
+            onClick={() => onEdit(recipe)}
           >
-            View
+            Edit
           </Button>
-
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-green-600 text-green-700 hover:bg-green-50"
-              onClick={() => onEdit(recipe)}
-            >
-              Edit
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleDelete}
-            >
-              Delete
-            </Button>
-          </div>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleDelete}
+          >
+            Delete
+          </Button>
         </CardFooter>
       </Card>
     </motion.div>

@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
   const [showForm, setShowForm] = useState(false);
+  const [editingRecipe, setEditingRecipe] = useState(null);
   const [recipes, setRecipes] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [username, setUsername] = useState("Chef");
@@ -72,27 +73,45 @@ export default function DashboardPage() {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
 
-      const { data, error } = await supabase
-        .from('recipes')
-        .insert([{ ...recipeData, user_id: session.user.id }])
-        .select();
+      if (editingRecipe) {
+        const { error } = await supabase
+          .from('recipes')
+          .update({ ...recipeData })
+          .eq('id', editingRecipe.id);
 
-      if (error) throw error;
-      setRecipes([data[0], ...recipes]);
+        if (error) throw error;
+
+        setRecipes(prev =>
+          prev.map(r => (r.id === editingRecipe.id ? { ...r, ...recipeData } : r))
+        );
+      } else {
+        const { data, error } = await supabase
+          .from('recipes')
+          .insert([{ ...recipeData, user_id: session.user.id }])
+          .select();
+
+        if (error) throw error;
+        setRecipes([data[0], ...recipes]);
+      }
+
       setShowForm(false);
+      setEditingRecipe(null);
     } catch (error) {
-      console.error('Error creating recipe:', error);
+      console.error('Error saving recipe:', error);
     }
   };
 
-  // ✅ Handle Deletion from UI
   const handleDelete = (deletedId) => {
     setRecipes(prev => prev.filter(r => r.id !== deletedId));
   };
 
+  const handleEdit = (recipe) => {
+    setEditingRecipe(recipe);
+    setShowForm(true);
+  };
+
   return (
     <section className="w-full max-w-6xl mx-auto px-4 md:px-8 py-10">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-500 tracking-tight">
@@ -103,7 +122,10 @@ export default function DashboardPage() {
           </p>
         </div>
         <Button
-          onClick={() => setShowForm(true)}
+          onClick={() => {
+            setShowForm(true);
+            setEditingRecipe(null);
+          }}
           size="sm"
           className="bg-[#4FA740] text-white hover:bg-[#3d8c32] transition-colors duration-200"
         >
@@ -111,17 +133,21 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {/* Recipe Form */}
       {showForm && (
         <div className="mb-6">
           <RecipeForm
             onSubmit={handleSubmit}
-            onCancel={() => setShowForm(false)}
+            onCancel={() => {
+              setShowForm(false);
+              setEditingRecipe(null);
+            }}
+            initialData={
+              editingRecipe ?? { input: 'chicken, rice, broccoli' }
+            }
           />
         </div>
       )}
 
-      {/* Recipes Grid */}
       {dataLoading ? (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           <RecipeLoader count={3} />
@@ -132,9 +158,8 @@ export default function DashboardPage() {
             <RecipeCard
               key={recipe.id}
               recipe={recipe}
-              onEdit={() => {}}
+              onEdit={handleEdit}
               onDelete={handleDelete}
-              onView={() => {}}
             />
           ))}
         </div>
@@ -145,7 +170,10 @@ export default function DashboardPage() {
               You haven't created any recipes yet.
             </p>
             <Button
-              onClick={() => setShowForm(true)}
+              onClick={() => {
+                setShowForm(true);
+                setEditingRecipe(null);
+              }}
               className="bg-[#4FA740] text-white hover:bg-[#3d8c32] transition-colors duration-200"
             >
               Create Your First Recipe

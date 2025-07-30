@@ -1,13 +1,18 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useUser } from "@/lib/supabase/use-user";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { useUser } from '@/lib/supabase/use-user';
+import { createClient } from '@/lib/supabase/client';
 
-export function RecipeForm({ onSubmit, onCancel }) {
-  const [input, setInput] = useState("");
+export function RecipeForm({ onSubmit, onCancel, initialData = {} }) {
+  const [input, setInput] = useState(initialData.input || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { user } = useUser();
@@ -21,12 +26,12 @@ export function RecipeForm({ onSubmit, onCancel }) {
 
     const trimmedInput = input.trim();
     if (!trimmedInput) {
-      setError("Please enter some ingredients.");
+      setError('Please enter some ingredients.');
       return;
     }
 
     if (!user?.id) {
-      setError("Please sign in to generate recipes.");
+      setError('Please sign in to generate recipes.');
       return;
     }
 
@@ -41,7 +46,7 @@ export function RecipeForm({ onSubmit, onCancel }) {
 
       if (authError || !session?.user?.id) {
         throw new Error(
-          authError?.message || "Session expired. Please refresh the page."
+          authError?.message || 'Session expired. Please refresh the page.'
         );
       }
 
@@ -55,16 +60,16 @@ export function RecipeForm({ onSubmit, onCancel }) {
         },
       };
 
-      console.log("📦 Sending Payload to /api/recipe-proxy:", payload);
+      console.log('📦 Sending Payload to /api/recipe-proxy:', payload);
 
-      const res = await fetch("/api/recipe-proxy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/recipe-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
-      const raw = await res.clone().text(); // for logging raw response
-      console.log("📨 Raw API Response:", raw);
+      const raw = await res.clone().text();
+      console.log('📨 Raw API Response:', raw);
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -74,21 +79,20 @@ export function RecipeForm({ onSubmit, onCancel }) {
       }
 
       const data = await res.json();
-      console.log("✅ Parsed API Response:", data);
-      setInput("");
+      console.log('✅ Parsed API Response:', data);
+      setInput('');
 
-      // ✅ FIXED: Only send `data.recipe` to parent to avoid stale UI
       if (onSubmit && data?.recipe) onSubmit(data.recipe);
     } catch (err) {
-      console.error("❌ API Error:", {
+      console.error('❌ API Error:', {
         error: err.message,
         input: input.trim(),
         timestamp: new Date().toISOString(),
       });
 
       setError(
-        err.message.includes("CORS")
-          ? "Connection error. Please try again."
+        err.message.includes('CORS')
+          ? 'Connection error. Please try again.'
           : err.message
       );
     } finally {
@@ -103,6 +107,7 @@ export function RecipeForm({ onSubmit, onCancel }) {
           🍳 What ingredients do you have?
         </CardTitle>
       </CardHeader>
+
       <CardContent>
         <input
           className="w-full border px-3 py-2 rounded mb-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -111,7 +116,7 @@ export function RecipeForm({ onSubmit, onCancel }) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={loading}
-          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
         />
 
         {error && (
@@ -138,7 +143,7 @@ export function RecipeForm({ onSubmit, onCancel }) {
                 Generating...
               </span>
             ) : (
-              "Generate Recipe"
+              'Generate Recipe'
             )}
           </Button>
         </div>
