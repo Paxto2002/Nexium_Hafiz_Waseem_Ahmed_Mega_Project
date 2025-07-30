@@ -97,7 +97,7 @@ export function RecipeForm({ onSubmit, onCancel }) {
         />
 
         {error && (
-          <p className="text-red-600 mt-2 text-sm animate-fade-in">
+          <p className="text-red-700 mt-2 text-sm animate-fade-in">
             {error}
           </p>
         )}
