@@ -8,25 +8,47 @@ import { RecipeLoader } from "@/components/RecipeLoader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
-import { useUser } from "@/lib/supabase/use-user";
 
 export default function DashboardPage() {
   const [showForm, setShowForm] = useState(false);
   const [recipes, setRecipes] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
+  const [username, setUsername] = useState("Chef");
   const router = useRouter();
-  const { user } = useUser();
 
   useEffect(() => {
-    if (user === null) {
-      router.push('/signin');
-      return;
-    }
+    const supabase = createClient();
 
-    if (user) {
-      fetchRecipes(user.id);
-    }
-  }, [user, router]);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) {
+        router.push('/signin');
+        return;
+      }
+
+      const userId = session.user.id;
+      const nameFromSignup = session.user.user_metadata?.name || session.user.email?.split("@")[0];
+      fetchRecipes(userId);
+
+      const { data: profile, error } = await supabase
+        .from('user_profiles')
+        .select('name')
+        .eq('user_id', userId)
+        .single();
+
+      if (!profile && nameFromSignup) {
+        await supabase.from('user_profiles').insert({
+          user_id: userId,
+          email: session.user.email,
+          name: nameFromSignup,
+        });
+        setUsername(nameFromSignup);
+      } else if (profile?.name) {
+        setUsername(profile.name);
+      } else {
+        setUsername(nameFromSignup);
+      }
+    });
+  }, [router]);
 
   const fetchRecipes = async (userId) => {
     try {
@@ -49,9 +71,11 @@ export default function DashboardPage() {
   const handleSubmit = async (recipeData) => {
     try {
       const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
       const { data, error } = await supabase
         .from('recipes')
-        .insert([{ ...recipeData, user_id: user.id }])
+        .insert([{ ...recipeData, user_id: session.user.id }])
         .select();
 
       if (error) throw error;
@@ -71,7 +95,7 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-500 tracking-tight">
-            Welcome back, {user?.name || 'Chef'}!
+            Welcome back, Chef {username}!
           </h1>
           <p className="text-sm text-gray-500 mt-1 font-bold">
             Ready to whip up something new?

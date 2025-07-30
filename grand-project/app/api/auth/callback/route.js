@@ -12,6 +12,7 @@ export async function GET(request) {
     );
   }
 
+  // Create redirect response first
   const redirectTo = new URL(`${requestUrl.origin}/dashboard`);
   const response = NextResponse.redirect(redirectTo);
 
@@ -36,6 +37,7 @@ export async function GET(request) {
   );
 
   try {
+    // Exchange code for session
     const { error: sessionError } = await supabase.auth.exchangeCodeForSession(
       code
     );
@@ -46,10 +48,12 @@ export async function GET(request) {
       );
     }
 
+    // Fetch authenticated user
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
+
     if (userError || !user) {
       console.error("User fetch error:", userError);
       return NextResponse.redirect(
@@ -58,27 +62,35 @@ export async function GET(request) {
     }
 
     // Get name from metadata or fallback to email prefix
+    const fallbackName = user.email.split("@")[0];
     const metadataName = user.user_metadata?.name?.trim();
-    const fallbackName = user.email?.split("@")[0] || "Chef";
     const preferredName = metadataName || fallbackName;
 
-    // Upsert user profile with the name
-    const { error: profileError } = await supabase.from("user_profiles").upsert(
+    // Check if user profile already exists
+    const { data: existingProfile, error: profileError } = await supabase
+      .from("user_profiles")
+      .select("name")
+      .eq("user_id", user.id)
+      .single();
+
+    if (profileError && profileError.code !== "PGRST116") {
+      // PGRST116 = no rows found, that's OK
+      console.error("Profile fetch error:", profileError);
+    }
+
+    // If profile doesn't exist or name is empty, insert or update it
+    await supabase.from("user_profiles").upsert(
       {
-        id: user.id,
         user_id: user.id,
         email: user.email,
-        name: preferredName,
-        created_at: new Date().toISOString(),
+        name: existingProfile?.name?.trim()
+          ? existingProfile.name
+          : preferredName,
       },
       {
         onConflict: "user_id",
       }
     );
-
-    if (profileError) {
-      console.error("Profile upsert error:", profileError);
-    }
 
     return response;
   } catch (err) {
