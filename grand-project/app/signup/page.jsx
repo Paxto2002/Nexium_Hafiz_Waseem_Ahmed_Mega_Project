@@ -29,9 +29,9 @@ export default function SignUpPage() {
           emailRedirectTo: `${window.location.origin}/api/auth/callback`,
           data: {
             name: formData.name || formData.email.split('@')[0],
-            is_signup: true
-          }
-        }
+            is_signup: true,
+          },
+        },
       });
 
       if (error) throw error;

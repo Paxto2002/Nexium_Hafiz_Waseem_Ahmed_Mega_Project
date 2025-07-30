@@ -11,7 +11,6 @@ import { useRouter } from "next/navigation";
 
 export default function DashboardPage() {
   const [showForm, setShowForm] = useState(false);
-  const [editingRecipe, setEditingRecipe] = useState(null);
   const [recipes, setRecipes] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [username, setUsername] = useState("Chef");
@@ -27,7 +26,7 @@ export default function DashboardPage() {
       }
 
       const userId = session.user.id;
-      const nameFromSignup = session.user.user_metadata?.name;
+      const nameFromSignup = session.user.user_metadata?.name || session.user.email?.split("@")[0];
       fetchRecipes(userId);
 
       const { data: profile, error } = await supabase
@@ -42,10 +41,11 @@ export default function DashboardPage() {
           email: session.user.email,
           name: nameFromSignup,
         });
-
         setUsername(nameFromSignup);
       } else if (profile?.name) {
         setUsername(profile.name);
+      } else {
+        setUsername(nameFromSignup);
       }
     });
   }, [router]);
@@ -73,29 +73,14 @@ export default function DashboardPage() {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
 
-      if (editingRecipe) {
-        const { error } = await supabase
-          .from('recipes')
-          .update({ ...recipeData })
-          .eq('id', editingRecipe.id);
+      const { data, error } = await supabase
+        .from('recipes')
+        .insert([{ ...recipeData, user_id: session.user.id }])
+        .select();
 
-        if (error) throw error;
-
-        setRecipes(prev =>
-          prev.map(r => (r.id === editingRecipe.id ? { ...r, ...recipeData } : r))
-        );
-      } else {
-        const { data, error } = await supabase
-          .from('recipes')
-          .insert([{ ...recipeData, user_id: session.user.id }])
-          .select();
-
-        if (error) throw error;
-        setRecipes([data[0], ...recipes]);
-      }
-
+      if (error) throw error;
+      setRecipes([data[0], ...recipes]);
       setShowForm(false);
-      setEditingRecipe(null);
     } catch (error) {
       console.error('Error saving recipe:', error);
     }
@@ -103,11 +88,6 @@ export default function DashboardPage() {
 
   const handleDelete = (deletedId) => {
     setRecipes(prev => prev.filter(r => r.id !== deletedId));
-  };
-
-  const handleEdit = (recipe) => {
-    setEditingRecipe(recipe);
-    setShowForm(true);
   };
 
   return (
@@ -122,10 +102,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <Button
-          onClick={() => {
-            setShowForm(true);
-            setEditingRecipe(null);
-          }}
+          onClick={() => setShowForm(true)}
           size="sm"
           className="bg-[#4FA740] text-white hover:bg-[#3d8c32] transition-colors duration-200"
         >
@@ -137,13 +114,8 @@ export default function DashboardPage() {
         <div className="mb-6">
           <RecipeForm
             onSubmit={handleSubmit}
-            onCancel={() => {
-              setShowForm(false);
-              setEditingRecipe(null);
-            }}
-            initialData={
-              editingRecipe ?? { input: 'chicken, rice, broccoli' }
-            }
+            onCancel={() => setShowForm(false)}
+            initialData={{ input: 'chicken, rice, broccoli' }}
           />
         </div>
       )}
@@ -158,7 +130,6 @@ export default function DashboardPage() {
             <RecipeCard
               key={recipe.id}
               recipe={recipe}
-              onEdit={handleEdit}
               onDelete={handleDelete}
             />
           ))}
@@ -170,10 +141,7 @@ export default function DashboardPage() {
               You haven't created any recipes yet.
             </p>
             <Button
-              onClick={() => {
-                setShowForm(true);
-                setEditingRecipe(null);
-              }}
+              onClick={() => setShowForm(true)}
               className="bg-[#4FA740] text-white hover:bg-[#3d8c32] transition-colors duration-200"
             >
               Create Your First Recipe

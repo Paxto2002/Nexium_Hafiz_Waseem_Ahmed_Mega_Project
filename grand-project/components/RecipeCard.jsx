@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 
-export function RecipeCard({ recipe, onEdit, onDelete }) {
+export function RecipeCard({ recipe, onDelete }) {
   const supabase = createClient();
 
   const handleDelete = async () => {
@@ -75,15 +75,7 @@ export function RecipeCard({ recipe, onEdit, onDelete }) {
           </div>
         </CardContent>
 
-        <CardFooter className="flex justify-end gap-2 mt-auto pt-4">
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-green-600 text-green-700 hover:bg-green-50"
-            onClick={() => onEdit(recipe)}
-          >
-            Edit
-          </Button>
+        <CardFooter className="flex justify-end mt-auto pt-4">
           <Button
             variant="destructive"
             size="sm"
