@@ -23,18 +23,30 @@ export default function SignUpPage() {
 
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOtp({
+      const { error } = await supabase.auth.signUp({
         email: formData.email,
         options: {
           emailRedirectTo: `${window.location.origin}/api/auth/callback`,
           data: {
-            name: formData.name || formData.email.split('@')[0],
-            is_signup: true,
+            name: formData.name.trim() || formData.email.split('@')[0],
           },
         },
       });
 
       if (error) throw error;
+      
+      // Create user profile immediately
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('user_profiles').upsert({
+          id: user.id,
+          user_id: user.id,
+          email: formData.email,
+          name: formData.name.trim() || formData.email.split('@')[0],
+          created_at: new Date().toISOString(),
+        });
+      }
+
       router.push("/email-sent");
     } catch (error) {
       setMessage({
@@ -63,10 +75,7 @@ export default function SignUpPage() {
         variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
         className="w-full max-w-md p-8 bg-white rounded-lg shadow-md"
       >
-        <motion.h1
-          variants={fadeInUp}
-          className="text-2xl font-bold text-center mb-6"
-        >
+        <motion.h1 variants={fadeInUp} className="text-2xl font-bold text-center mb-6">
           Create Account
         </motion.h1>
 
@@ -78,9 +87,7 @@ export default function SignUpPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               className={`mb-4 p-3 rounded-md ${
-                message.type === 'error'
-                  ? 'bg-red-100 text-red-700'
-                  : 'bg-green-100 text-green-700'
+                message.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
               }`}
             >
               {message.content}
@@ -91,12 +98,13 @@ export default function SignUpPage() {
         <form onSubmit={handleSignUp} className="space-y-4">
           <motion.div variants={fadeInUp}>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-              Full Name
+              Full Name *
             </label>
             <input
               id="name"
               name="name"
               type="text"
+              required
               value={formData.name}
               onChange={handleInputChange}
               placeholder="Your full name"
@@ -142,10 +150,7 @@ export default function SignUpPage() {
           </motion.button>
         </form>
 
-        <motion.div
-          variants={fadeInUp}
-          className="mt-6 text-center text-sm text-gray-600"
-        >
+        <motion.div variants={fadeInUp} className="mt-6 text-center text-sm text-gray-600">
           <p>
             Already have an account?{" "}
             <a href="/signin" className="text-green-600 hover:underline font-medium">

@@ -1,4 +1,3 @@
-// lib/supabase/use-user.js
 "use client";
 
 import { createClient } from "@/lib/supabase/client";
@@ -15,10 +14,34 @@ export function useUser() {
         setLoading(true);
         const {
           data: { session },
+          error,
         } = await supabase.auth.getSession();
-        setUser(session?.user ?? null);
+
+        if (error) throw error;
+        if (!session) {
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
+        // Fetch user profile
+        const { data: profile, error: profileError } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("user_id", session.user.id)
+          .single();
+
+        setUser({
+          ...session.user,
+          name:
+            profile?.name ||
+            session.user.user_metadata?.name ||
+            session.user.email?.split("@")[0] ||
+            "Chef",
+          profile: profile,
+        });
       } catch (error) {
-        console.error("Error fetching session:", error);
+        console.error("Error fetching user:", error);
         setUser(null);
       } finally {
         setLoading(false);
@@ -29,8 +52,26 @@ export function useUser() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("user_id", session.user.id)
+          .single();
+
+        setUser({
+          ...session.user,
+          name:
+            profile?.name ||
+            session.user.user_metadata?.name ||
+            session.user.email?.split("@")[0] ||
+            "Chef",
+          profile: profile,
+        });
+      } else {
+        setUser(null);
+      }
     });
 
     return () => subscription?.unsubscribe();

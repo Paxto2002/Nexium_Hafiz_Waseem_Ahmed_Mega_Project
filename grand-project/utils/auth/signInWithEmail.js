@@ -1,4 +1,3 @@
-// utils/auth/signInWithEmail.js
 import { createClient } from "@/lib/supabase/client";
 
 export async function signInWithEmail(email) {
@@ -8,7 +7,7 @@ export async function signInWithEmail(email) {
   const { error: signInError } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: `${window.location.origin}/auth/callback`,
+      emailRedirectTo: `${window.location.origin}/api/auth/callback`,
     },
   });
 
@@ -17,7 +16,7 @@ export async function signInWithEmail(email) {
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
       },
     });
 
