@@ -1,3 +1,4 @@
+// File: components/RecipeForm.jsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -45,6 +46,7 @@ export function RecipeForm({ onSubmit, onCancel }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           input: trimmedInput,
+          user_id: session.user.id,
           client_info: {
             user_agent: navigator.userAgent,
             screen_resolution: `${window.screen.width}x${window.screen.height}`,

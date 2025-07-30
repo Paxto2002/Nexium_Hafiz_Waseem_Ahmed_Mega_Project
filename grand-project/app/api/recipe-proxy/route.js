@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+// File: app/api/recipe-proxy/route.js
+import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function OPTIONS() {
   return NextResponse.json({}, { status: 200 });
@@ -15,14 +16,14 @@ export async function POST(req) {
       error: authError,
     } = await supabase.auth.getSession();
 
-    if (authError || !session || !session.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const user_id = body.user_id || session?.user?.id;
+    if (authError || !user_id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user_id = session.user.id;
     const input = body.input?.toString?.().trim();
     if (!input) {
-      return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
 
     const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
@@ -30,22 +31,22 @@ export async function POST(req) {
 
     if (!webhookUrl || !secret) {
       return NextResponse.json(
-        { error: 'Server Misconfigured' },
+        { error: "Server Misconfigured" },
         { status: 500 }
       );
     }
 
     const client_info = body.client_info || {
-      user_agent: req.headers.get('user-agent') || 'unknown',
-      origin: req.headers.get('origin') || 'unknown',
+      user_agent: req.headers.get("user-agent") || "unknown",
+      origin: req.headers.get("origin") || "unknown",
       timestamp: new Date().toISOString(),
     };
 
     const n8nRes = await fetch(webhookUrl, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'X-Chef-Secret': secret,
+        "Content-Type": "application/json",
+        "X-Chef-Secret": secret,
         Origin: client_info.origin,
       },
       body: JSON.stringify({ user_id, input, client_info }),
@@ -54,7 +55,7 @@ export async function POST(req) {
     if (!n8nRes.ok) {
       const errorDetails = await n8nRes.text();
       return NextResponse.json(
-        { error: 'n8n webhook failed', details: errorDetails },
+        { error: "n8n webhook failed", details: errorDetails },
         { status: n8nRes.status }
       );
     }
@@ -62,9 +63,9 @@ export async function POST(req) {
     const data = await n8nRes.json();
     return NextResponse.json(data, { status: 200 });
   } catch (err) {
-    console.error('Webhook Proxy Error:', err);
+    console.error("Webhook Proxy Error:", err);
     return NextResponse.json(
-      { error: 'Internal Server Error', message: err.message },
+      { error: "Internal Server Error", message: err.message },
       { status: 500 }
     );
   }
