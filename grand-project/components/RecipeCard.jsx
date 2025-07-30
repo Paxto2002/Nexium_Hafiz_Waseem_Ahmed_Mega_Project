@@ -11,6 +11,11 @@ import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 
+const cardVariants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0 },
+};
+
 export function RecipeCard({ recipe, onDelete }) {
   const supabase = createClient();
 
@@ -32,11 +37,14 @@ export function RecipeCard({ recipe, onDelete }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
+      variants={cardVariants}
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.1 }}
+      whileHover={{ scale: 1.02 }}
+      transition={{ duration: 0.5, ease: 'easeOut' }}
     >
-      <Card className="hover:shadow-lg border border-green-200 transition-shadow h-full flex flex-col">
+      <Card className="hover:shadow-xl border border-green-200 transition-shadow h-full flex flex-col bg-white">
         <CardHeader>
           <CardTitle className="text-lg text-green-800">
             {recipe.ai_title || recipe.title || 'Untitled'}
