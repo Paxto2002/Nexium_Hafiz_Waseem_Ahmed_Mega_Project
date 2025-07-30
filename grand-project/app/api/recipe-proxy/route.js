@@ -50,7 +50,7 @@ export async function POST(req) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Chef-Secret": secret,
+        NEXT_PUBLIC_CHEF_WEBHOOK_SECRET: secret,
         Origin: client_info.origin,
       },
       body: JSON.stringify(payload),
