@@ -1,4 +1,3 @@
-// File: components/RecipeForm.jsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -77,7 +76,9 @@ export function RecipeForm({ onSubmit, onCancel }) {
       const data = await res.json();
       console.log("✅ Parsed API Response:", data);
       setInput("");
-      if (onSubmit) onSubmit(data);
+
+      // ✅ FIXED: Only send `data.recipe` to parent to avoid stale UI
+      if (onSubmit && data?.recipe) onSubmit(data.recipe);
     } catch (err) {
       console.error("❌ API Error:", {
         error: err.message,
