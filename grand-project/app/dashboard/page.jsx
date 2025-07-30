@@ -31,7 +31,7 @@ export default function DashboardPage() {
 
       const { data: profile, error } = await supabase
         .from('user_profiles')
-        .select('name')
+        .select('name') // 'name' must match your actual column name
         .eq('user_id', userId)
         .single();
 
