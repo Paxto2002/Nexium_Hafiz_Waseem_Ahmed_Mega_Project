@@ -85,6 +85,11 @@ export default function DashboardPage() {
     }
   };
 
+  // ✅ Handle Deletion from UI
+  const handleDelete = (deletedId) => {
+    setRecipes(prev => prev.filter(r => r.id !== deletedId));
+  };
+
   return (
     <section className="w-full max-w-6xl mx-auto px-4 md:px-8 py-10">
       {/* Header */}
@@ -128,7 +133,7 @@ export default function DashboardPage() {
               key={recipe.id}
               recipe={recipe}
               onEdit={() => {}}
-              onDelete={() => {}}
+              onDelete={handleDelete}
               onView={() => {}}
             />
           ))}
