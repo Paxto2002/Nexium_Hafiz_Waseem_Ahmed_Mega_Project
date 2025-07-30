@@ -1,4 +1,4 @@
-// File: app/api/recipe-proxy/route.js
+// app / api / recipe - proxy / route.js;
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -42,6 +42,10 @@ export async function POST(req) {
       timestamp: new Date().toISOString(),
     };
 
+    const payload = { user_id, input, client_info };
+
+    console.log("🔍 Sending to n8n:", JSON.stringify(payload, null, 2));
+
     const n8nRes = await fetch(webhookUrl, {
       method: "POST",
       headers: {
@@ -49,11 +53,12 @@ export async function POST(req) {
         "X-Chef-Secret": secret,
         Origin: client_info.origin,
       },
-      body: JSON.stringify({ user_id, input, client_info }),
+      body: JSON.stringify(payload),
     });
 
     if (!n8nRes.ok) {
       const errorDetails = await n8nRes.text();
+      console.error("❌ n8n response error:", errorDetails);
       return NextResponse.json(
         { error: "n8n webhook failed", details: errorDetails },
         { status: n8nRes.status }
@@ -61,9 +66,10 @@ export async function POST(req) {
     }
 
     const data = await n8nRes.json();
+    console.log("✅ n8n response:", JSON.stringify(data, null, 2));
     return NextResponse.json(data, { status: 200 });
   } catch (err) {
-    console.error("Webhook Proxy Error:", err);
+    console.error("❗ Webhook Proxy Error:", err);
     return NextResponse.json(
       { error: "Internal Server Error", message: err.message },
       { status: 500 }
