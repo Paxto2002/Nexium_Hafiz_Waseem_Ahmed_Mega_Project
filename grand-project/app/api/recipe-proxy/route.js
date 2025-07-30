@@ -1,4 +1,3 @@
-// app / api / recipe - proxy / route.js;
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -8,6 +7,10 @@ export async function OPTIONS() {
 
 export async function POST(req) {
   try {
+    // 🔐 Log the incoming secret header from the browser
+    const receivedSecret = req.headers.get("x-chef-secret");
+    console.log("🔐 X-Chef-Secret header received:", receivedSecret);
+
     const body = await req.json();
     const supabase = await createSupabaseServerClient();
 
