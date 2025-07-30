@@ -1,4 +1,3 @@
-// components/RecipeForm.jsx
 'use client';
 
 import { useState, useEffect } from "react";
@@ -13,7 +12,6 @@ export function RecipeForm({ onSubmit, onCancel }) {
   const [error, setError] = useState(null);
   const { user } = useUser();
 
-  // Reset error when input changes
   useEffect(() => {
     if (error) setError(null);
   }, [input]);
@@ -21,7 +19,6 @@ export function RecipeForm({ onSubmit, onCancel }) {
   const handleSubmit = async () => {
     setError(null);
 
-    // Validate input
     if (!input.trim()) {
       setError("Please enter some ingredients.");
       return;
@@ -37,41 +34,23 @@ export function RecipeForm({ onSubmit, onCancel }) {
     try {
       const supabase = createClient();
       const { data: { session }, error: authError } = await supabase.auth.getSession();
-      
+
       if (authError || !session?.user?.id) {
         throw new Error(authError?.message || "Session expired. Please refresh the page.");
       }
 
-      // First make OPTIONS preflight request
-      const preflight = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL, {
-        method: "OPTIONS",
-        headers: {
-          "Origin": window.location.origin,
-          "Access-Control-Request-Method": "POST",
-          "Access-Control-Request-Headers": "Content-Type, X-Chef-Secret"
-        }
-      });
-
-      if (!preflight.ok) {
-        throw new Error("CORS configuration error. Please try again later.");
-      }
-
-      // Main request
-      const res = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL, {
+      const res = await fetch('/api/recipe-proxy', {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          "X-Chef-Secret": process.env.NEXT_PUBLIC_CHEF_WEBHOOK_SECRET,
-          "Origin": window.location.origin
         },
         body: JSON.stringify({
-          user_id: session.user.id,
           input: input.trim(),
           client_info: {
             user_agent: navigator.userAgent,
             screen_resolution: `${window.screen.width}x${window.screen.height}`,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-          }
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
         }),
       });
 
@@ -83,18 +62,17 @@ export function RecipeForm({ onSubmit, onCancel }) {
       const data = await res.json();
       setInput("");
       if (onSubmit) onSubmit(data);
+
     } catch (err) {
       console.error("API Error:", {
         error: err.message,
         input: input.trim(),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
-      
-      setError(
-        err.message.includes("CORS") 
-          ? "Connection error. Please try again."
-          : err.message
-      );
+
+      setError(err.message.includes("CORS")
+        ? "Connection error. Please try again."
+        : err.message);
     } finally {
       setLoading(false);
     }
@@ -125,8 +103,8 @@ export function RecipeForm({ onSubmit, onCancel }) {
         )}
 
         <div className="mt-4 flex justify-between gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={onCancel}
             disabled={loading}
             className="flex-1"
