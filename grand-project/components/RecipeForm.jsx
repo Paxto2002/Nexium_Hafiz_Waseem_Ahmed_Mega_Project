@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useUser } from "@/lib/supabase/use-user";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useUser } from '@/lib/supabase/use-user';
+import { createClient } from '@/lib/supabase/client';
 
 export function RecipeForm({ onSubmit, onCancel }) {
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { user } = useUser();
@@ -19,13 +19,14 @@ export function RecipeForm({ onSubmit, onCancel }) {
   const handleSubmit = async () => {
     setError(null);
 
-    if (!input.trim()) {
-      setError("Please enter some ingredients.");
+    const trimmedInput = input.trim();
+    if (!trimmedInput) {
+      setError('Please enter some ingredients.');
       return;
     }
 
     if (!user?.id) {
-      setError("Please sign in to generate recipes.");
+      setError('Please sign in to generate recipes.');
       return;
     }
 
@@ -36,16 +37,14 @@ export function RecipeForm({ onSubmit, onCancel }) {
       const { data: { session }, error: authError } = await supabase.auth.getSession();
 
       if (authError || !session?.user?.id) {
-        throw new Error(authError?.message || "Session expired. Please refresh the page.");
+        throw new Error(authError?.message || 'Session expired. Please refresh the page.');
       }
 
       const res = await fetch('/api/recipe-proxy', {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          input: input.trim(),
+          input: trimmedInput,
           client_info: {
             user_agent: navigator.userAgent,
             screen_resolution: `${window.screen.width}x${window.screen.height}`,
@@ -60,19 +59,17 @@ export function RecipeForm({ onSubmit, onCancel }) {
       }
 
       const data = await res.json();
-      setInput("");
+      setInput('');
       if (onSubmit) onSubmit(data);
 
     } catch (err) {
-      console.error("API Error:", {
+      console.error('API Error:', {
         error: err.message,
         input: input.trim(),
         timestamp: new Date().toISOString(),
       });
 
-      setError(err.message.includes("CORS")
-        ? "Connection error. Please try again."
-        : err.message);
+      setError(err.message.includes('CORS') ? 'Connection error. Please try again.' : err.message);
     } finally {
       setLoading(false);
     }
@@ -121,7 +118,7 @@ export function RecipeForm({ onSubmit, onCancel }) {
                 <span className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                 Generating...
               </span>
-            ) : "Generate Recipe"}
+            ) : 'Generate Recipe'}
           </Button>
         </div>
       </CardContent>
