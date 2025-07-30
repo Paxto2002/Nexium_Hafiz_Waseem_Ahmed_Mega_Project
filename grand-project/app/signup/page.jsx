@@ -16,42 +16,71 @@ export default function SignUpPage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const validateForm = () => {
+    if (!formData.email) {
+      setMessage({ type: 'error', content: 'Email is required' });
+      return false;
+    }
+    if (!formData.name) {
+      setMessage({ type: 'error', content: 'Name is required' });
+      return false;
+    }
+    return true;
+  };
+
   const handleSignUp = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage({ type: '', content: '' });
 
+    if (!validateForm()) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signUp({
+      
+      // Step 1: Send magic link
+      const { error: authError } = await supabase.auth.signInWithOtp({
         email: formData.email,
         options: {
           emailRedirectTo: `${window.location.origin}/api/auth/callback`,
           data: {
-            name: formData.name.trim() || formData.email.split('@')[0],
-          },
-        },
+            name: formData.name.trim(),
+            is_signup: true,
+          }
+        }
       });
 
-      if (error) throw error;
+      if (authError) throw authError;
+
+      // Step 2: Create user profile
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
       
-      // Create user profile immediately
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from('user_profiles').upsert({
-          id: user.id,
-          user_id: user.id,
-          email: formData.email,
-          name: formData.name.trim() || formData.email.split('@')[0],
-          created_at: new Date().toISOString(),
-        });
+      if (userError || !user) {
+        throw new Error('Failed to get user after signup');
       }
+
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .upsert({
+          id: user.id,
+          name: formData.name.trim(),
+          email: formData.email,
+          created_at: new Date().toISOString()
+        }, {
+          onConflict: 'id'
+        });
+
+      if (profileError) throw profileError;
 
       router.push("/email-sent");
     } catch (error) {
+      console.error('Signup error:', error);
       setMessage({
         type: 'error',
-        content: error.message || 'Sign up failed. Please try again.'
+        content: error.message || 'An error occurred during signup'
       });
     } finally {
       setLoading(false);
@@ -110,6 +139,8 @@ export default function SignUpPage() {
               placeholder="Your full name"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               autoComplete="name"
+              minLength={2}
+              maxLength={50}
             />
           </motion.div>
 
@@ -127,6 +158,7 @@ export default function SignUpPage() {
               placeholder="your@email.com"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
               autoComplete="email"
+              pattern="[^@\s]+@[^@\s]+\.[^@\s]+"
             />
           </motion.div>
 
@@ -146,7 +178,7 @@ export default function SignUpPage() {
                 </svg>
                 Creating account...
               </>
-            ) : 'Create Account'}
+            ) : 'Sign Up with Magic Link'}
           </motion.button>
         </form>
 
