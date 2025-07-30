@@ -1,11 +1,9 @@
 // app/dashboard/recipe/[id]/page.jsx
-import { createServerClient } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { notFound } from 'next/navigation';
 
 export default async function RecipeDetailPage({ params }) {
-  const cookieStore = cookies();
-  const supabase = createServerClient(cookieStore);
+  const supabase = await createSupabaseServerClient();
   const { id } = params;
 
   const { data: recipe, error } = await supabase
@@ -16,13 +14,15 @@ export default async function RecipeDetailPage({ params }) {
 
   if (error || !recipe) {
     console.error('Recipe fetch error:', error);
-    return notFound(); // fallback to 404
+    return notFound();
   }
 
   return (
     <div className="max-w-2xl mx-auto p-6">
       <h2 className="text-2xl font-bold mb-2">{recipe.ai_title}</h2>
-      <p className="text-muted-foreground text-sm mb-4">Created on {new Date(recipe.created_at).toLocaleDateString()}</p>
+      <p className="text-muted-foreground text-sm mb-4">
+        Created on {new Date(recipe.created_at).toLocaleDateString()}
+      </p>
 
       <div className="space-y-4">
         <section>
