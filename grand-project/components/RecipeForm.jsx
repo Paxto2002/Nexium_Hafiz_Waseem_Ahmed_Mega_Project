@@ -1,14 +1,14 @@
 // File: components/RecipeForm.jsx
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useUser } from '@/lib/supabase/use-user';
-import { createClient } from '@/lib/supabase/client';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useUser } from "@/lib/supabase/use-user";
+import { createClient } from "@/lib/supabase/client";
 
 export function RecipeForm({ onSubmit, onCancel }) {
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { user } = useUser();
@@ -22,12 +22,12 @@ export function RecipeForm({ onSubmit, onCancel }) {
 
     const trimmedInput = input.trim();
     if (!trimmedInput) {
-      setError('Please enter some ingredients.');
+      setError("Please enter some ingredients.");
       return;
     }
 
     if (!user?.id) {
-      setError('Please sign in to generate recipes.');
+      setError("Please sign in to generate recipes.");
       return;
     }
 
@@ -35,43 +35,61 @@ export function RecipeForm({ onSubmit, onCancel }) {
 
     try {
       const supabase = createClient();
-      const { data: { session }, error: authError } = await supabase.auth.getSession();
+      const {
+        data: { session },
+        error: authError,
+      } = await supabase.auth.getSession();
 
       if (authError || !session?.user?.id) {
-        throw new Error(authError?.message || 'Session expired. Please refresh the page.');
+        throw new Error(
+          authError?.message || "Session expired. Please refresh the page."
+        );
       }
 
-      const res = await fetch('/api/recipe-proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          input: trimmedInput,
-          user_id: session.user.id,
-          client_info: {
-            user_agent: navigator.userAgent,
-            screen_resolution: `${window.screen.width}x${window.screen.height}`,
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          },
-        }),
+      const payload = {
+        input: trimmedInput,
+        user_id: session.user.id,
+        client_info: {
+          user_agent: navigator.userAgent,
+          screen_resolution: `${window.screen.width}x${window.screen.height}`,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
+      };
+
+      console.log("📦 Sending Payload to /api/recipe-proxy:", payload);
+
+      const res = await fetch("/api/recipe-proxy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
+
+      const raw = await res.clone().text(); // for logging raw response
+      console.log("📨 Raw API Response:", raw);
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || `Recipe generation failed (${res.status})`);
+        throw new Error(
+          errorData.message || `Recipe generation failed (${res.status})`
+        );
       }
 
       const data = await res.json();
-      setInput('');
+      console.log("✅ Parsed API Response:", data);
+      setInput("");
       if (onSubmit) onSubmit(data);
-
     } catch (err) {
-      console.error('API Error:', {
+      console.error("❌ API Error:", {
         error: err.message,
         input: input.trim(),
         timestamp: new Date().toISOString(),
       });
 
-      setError(err.message.includes('CORS') ? 'Connection error. Please try again.' : err.message);
+      setError(
+        err.message.includes("CORS")
+          ? "Connection error. Please try again."
+          : err.message
+      );
     } finally {
       setLoading(false);
     }
@@ -92,13 +110,11 @@ export function RecipeForm({ onSubmit, onCancel }) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={loading}
-          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
         />
 
         {error && (
-          <p className="text-red-700 mt-2 text-sm animate-fade-in">
-            {error}
-          </p>
+          <p className="text-red-700 mt-2 text-sm animate-fade-in">{error}</p>
         )}
 
         <div className="mt-4 flex justify-between gap-2">
@@ -120,7 +136,9 @@ export function RecipeForm({ onSubmit, onCancel }) {
                 <span className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                 Generating...
               </span>
-            ) : 'Generate Recipe'}
+            ) : (
+              "Generate Recipe"
+            )}
           </Button>
         </div>
       </CardContent>
